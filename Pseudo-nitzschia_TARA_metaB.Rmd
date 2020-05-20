@@ -1,0 +1,519 @@
+---
+title: "Abundance and Distribution of Pseudo-nitzschia in the Global Epipelagic Ocean"
+author: "Lucia Campese"
+date: "Feb 2020"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>
+.column-left{
+  float: left;
+  width: 50%;
+  text-align: left;
+}
+.column-right{
+  float: right;
+  width: 50%;
+  text-align: right;
+}
+</style>
+
+
+## Section One: Pseudo-nitzschia and Total Diatoms' Abundance and Distribution.
+
+### Aim:
+The aim is to explore the Pseudo-nizschia OTUs distribution and abundance in relation to the total amount of diatoms along TARA Oceans sampling stations.
+
+<br>
+
+### Dataset
+##### Omic data: TARA metaB (V9)
+##### Taxon: diatoms (Bacillariophyta)
+##### Depth: Surface, Deep Chlorophyll Maximum
+##### Size fractions: 3-20um, 5-20um, 20-180um, 180-2000um
+##### Geographic scale: Global
+
+<br>
+
+#### Workflow
+
+1. Upload metabarcoding and environmental data, and select depths and size fractions of interest:
++ Depths: surface (SRF) and Deep Chlorophyll Maximum (DCM);
++ Size Fraction: Consider three class:
+  a. Nanoplankton: merging 3-20um (Only Arctic) and 5-20um (elsewhere);
+  b. Microplankton: 20-180um
+  c. Mesoplankton: 180-2000um
+
+```{r, eval=FALSE}
+
+library(tidyverse)
+library(ggplot2)
+
+#upload diatom's metab
+diatoms <- read.delim(file="C:/Users/Userszn/Google Drive/PhD/TARA_Data/metab/diatoms/diatoms.txt",
+                      sep = " ", stringsAsFactors = F) 
+
+
+#extract Pseudon-itzschia
+PN <- diatoms[grep("Pseudo-nitzschia", diatoms$lineage),]
+
+
+#upload environmental data and filter
+dat_samp <- read.delim("~/PhD/TARA_Data/dat_samp.txt") %>% 
+  select(Sample.id, Depth, Fraction.size, Station.label,
+         Latitude, Longitude, Temperature, Marine.biome, Ocean.region) %>% 
+  filter(Depth %in% c("SRF", "DCM"), Fraction.size %in% c("3-20", "5-20", "20-180",
+                                                          "180-2000"))
+
+
+###filter diatoms
+diatoms1 <- diatoms[,names(diatoms)%in%dat_samp$Sample.id] %>%
+  rownames_to_column("cid") %>%
+  gather (Sample.id, values, -cid) %>%
+  merge(dat_samp) %>%
+  mutate(Fraction.size = case_when(Fraction.size %in% c("3-20", "5-20") ~ "nano",
+                                   Fraction.size == "20-180" ~ "micro",
+                                   Fraction.size == "180-2000" ~ "meso",
+                                   TRUE ~ as.character(Fraction.size)))
+
+#filter pseudonitz
+PN1 <- PN[,names(PN)%in%dat_samp$Sample.id] %>% 
+  rownames_to_column("cid") %>% 
+  gather (Sample.id, values, -cid) %>%
+  merge(dat_samp) %>% 
+  mutate(Fraction.size = case_when(Fraction.size %in% c("3-20", "5-20") ~ "nano",
+                                   Fraction.size == "20-180" ~ "micro",
+                                   Fraction.size == "180-2000" ~ "meso",
+                                   TRUE ~ as.character(Fraction.size)))
+
+```
+
+<br>
+
+2. Look at the geographic distribution of Pseudo-nizschia OTUs and their contribute to the total diatom abundance per each station.
+
+```{r, eval=FALSE}
+
+PN_diatoms <- diatoms1 %>% 
+  filter(values > 0) %>% 
+  rename(dia.values = values) %>% 
+  mutate(pseu.values = ifelse(cid %in% PN1$cid, dia.values, 0)) %>%
+  group_by(Station.label, Fraction.size) %>% 
+  mutate(rel.abundance = sum(pseu.values)/sum(dia.values)*100,
+         magnitude_overall = factor(10^(ceiling(log10(sum(pseu.values))))),
+         magnitude = case_when(magnitude_overall == 100 ~ "1e+02",
+                               magnitude_overall == 1000 ~ "1e+03",
+                               magnitude_overall == 10000 ~ "1e+04",
+                               TRUE ~ as.character(magnitude_overall))) %>%
+  ungroup() %>% 
+  select(Station.label, magnitude, rel.abundance, Latitude, Longitude, Fraction.size, Depth) %>% 
+  filter(rel.abundance > 0) %>% 
+  filter(magnitude > 10) %>% 
+  unique()
+
+library(maps)
+world_map <- map_data("world")
+p <- ggplot() + coord_fixed()
+
+base_world3 <- p + geom_polygon(data=world_map,aes(x=long, y=lat,group=group),colour="gray80",size=0.2, fill="gray80")+
+  theme_bw() + coord_fixed()
+
+pdf("pseudo-nitzschia_ab_on_diatoms.pdf", width = 8, height = 8)
+base_world3+
+  geom_point(data=PN_diatoms,
+             aes(x = Longitude, y = Latitude, 
+                 size = rel.abundance, 
+                 fill= magnitude),
+             shape=21, col="gray44") +
+  theme_minimal() +
+  scale_fill_viridis_d() +
+  theme(legend.text=element_text(size=10)) +
+  scale_size(name="Relative abundance (%)") +
+  ggtitle("Pseudo-nitzschia abundance expressed as 
+          percentage on total diatom reads per station")
+dev.off()
+
+```
+
+![pseudo-nitzschia_ab_on_diatoms](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pseudo-nitzschia_ab_on_diatoms.pdf){width=100% height=700}
+
+<br>
+
+3. Look at the correlation between Pseudo-nitzschia OTUs and total diatom abundance.
+
+```{r eval=FALSE}
+##Pearson correlation
+Pearson_cor <- diatoms1 %>% 
+  filter(values > 0) %>% 
+  rename(dia.values = values) %>% 
+  mutate(pseu.values = ifelse(cid %in% PN1$cid, dia.values, 0)) %>%
+  group_by(Station.label) %>% 
+  summarise(dia.sum = sum(dia.values),
+            pseu.sum = sum(pseu.values)) %>%
+  ungroup() %>% 
+  arrange(Station.label) %>% 
+  filter(dia.sum > 0, pseu.sum > 0)
+
+cor.test(log(Pearson_cor$dia.sum), log(Pearson_cor$pseu.sum), method = "pearson")
+
+```
+
+```{r, eval=FALSE}
+pdf("pn_dia_cor.pdf")
+diatoms1 %>% 
+  filter(values > 0) %>% 
+  rename(dia.values = values) %>% 
+  mutate(pseu.values = ifelse(cid %in% PN1$cid, dia.values, 0)) %>%
+  group_by(Station.label, Fraction.size) %>% 
+  summarise(dia.sum = sum(dia.values), pseu.sum = sum(pseu.values)) %>%
+  ungroup() %>% 
+  ggplot() + 
+  geom_point(aes(x = dia.sum, y = pseu.sum)) +
+  theme_minimal() +
+  scale_x_log10() +
+  scale_y_log10() +
+  theme(legend.text=element_text(size=10)) +
+  xlab("total diatom reads") + 
+  ylab("total Pseudo-nitzschia reads") +
+  ggtitle("Pseudo-nitzschia and total diatom reads per station") +
+  annotate("text", x=10, y=100000, label = 
+"Pearson's correlation
+cor 0.797
+p-value < 2.2e-16
+95% ci. [0.728; 0.850]")
+dev.off()
+```
+
+![pseudo-pn_dia_cor](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia//metaB/pn_dia_cor.pdf){width=100% height=700}
+
+<br>
+
+```{r eval=FALSE}
+##lm
+prova <- diatoms1 %>% 
+  filter(values > 0) %>% 
+  rename(dia.values = values) %>% 
+  mutate(pseu.values = ifelse(cid %in% PN1$cid, dia.values, 0)) %>%
+  group_by(Station.label) %>% 
+  summarise(dia.sum = sum(dia.values), pseu.sum = sum(pseu.values),
+            y = pseu.sum/dia.sum) %>%
+  ungroup() %>% 
+  rename(x=dia.sum, y0=pseu.sum) %>%
+  filter(y0>0) %>% 
+  mutate(x=log(x), y=log(y)) %>% 
+  rownames_to_column("id") %>% 
+  select(-c("Station.label"))
+
+model1 <- lm(y~x, data=prova)
+temp_var <- predict(model1, interval="prediction")
+new_df <- cbind(prova,temp_var)
+p <- ggplot(new_df) + aes(x,y) +
+  geom_label(aes(label=id)) +
+  geom_line(aes(y=lwr), color = "red", linetype = "dashed")+
+  geom_line(aes(y=upr), color = "red", linetype = "dashed")+
+  geom_smooth(method=lm, se=TRUE) +
+  theme_minimal()
+print(p)
+par(mfrow=c(2,3)); plot(model1, which=1:6)
+
+```
+
+<br>
+<br>
+
+## Section Two: Within-genus exploration
+
+### Aim:
+The aim is to look more in detail at Pseudo-nitzschia OTUs distribution and to explore the number and proportion of OTUs taxonomically assigned at species level
+
+<br>
+
+### Dataset
+##### Omic data: TARA metaB (V9)
+##### Taxon: Pseudo-nitzschia
+##### Depth: Surface, Deep Chlorophyll Maximum
+##### Size fractions: all
+##### Geographic scale: Global  
+
+<br>
+
+#### Workflow
+1. Check for spatial autocorrelation.
+
+```{r, eval=FALSE}
+library(tidyverse)
+
+##autocorrelation
+acf <- PN1 %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  filter(values > 0) %>% 
+  group_by(Station.label) %>% 
+  mutate(sum = sum(values)) %>% 
+  ungroup() %>%
+  select(Station.label, sum) %>%
+  arrange(Station.label) %>% 
+  unique()
+
+pdf("autocorrelation.pdf")
+acf(acf$sum)
+dev.off()
+```
+
+![pseudo-autocorrelation](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia//metaB/autocorrelation.pdf){width=100% height=700}
+
+<br>
+
+2. Look at the distribution of Pseudo-nitzschia OTUs both in terms of single values and sum of values per each station.
+
+
+<div class="column-left">
+```{r, eval=FALSE}
+##histogram
+##scatterplot temperature & n reads
+pdf("pn_ab_n_reads.pdf")
+PN1 %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  filter(values !=0) %>% 
+  ggplot() +
+  geom_histogram(aes(values), alpha=0.5) +
+  theme_minimal() +
+  scale_x_log10() +
+  xlab("abundance") +
+  ggtitle("Pseudo-nitzschia abundance expressed as number of reads")
+dev.off()
+```
+![pseudo-pn_ab_n_reads](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pn_ab_n_reads.pdf){width=100% height=700}</div>
+
+<div class="column-right">
+```{r, eval=FALSE}
+pdf("pn_ab_n_reads_station.pdf")
+PN1 %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label) %>% 
+  mutate(sum = sum(values)) %>% 
+  ungroup() %>%
+  ggplot() +
+  geom_histogram(aes(sum), alpha=0.5) +
+  theme_minimal() +
+  scale_x_log10() +
+  xlab("abundance per station") +
+    ggtitle("Pseudo-nitzschia abundance expressed as number of reads per station")
+dev.off()
+```
+![pseudo-pn_ab_n_reads_station](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pn_ab_n_reads_station.pdf){width=100% height=700}</div>
+
+<br>
+
+3. Look at the geographic distribution of Pseudo-nizschia OTUs.
+
+```{r, eval=FALSE}
+
+global_maps <- PN1 %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label) %>% 
+  mutate(sum = sum(values)) %>% 
+  filter(sum > 10) %>% 
+  mutate(magnitude_overall = factor(10^(ceiling(log10(sum)))),
+         magnitude = case_when(magnitude_overall  == "100" ~ "1e+02",
+                               magnitude_overall == "1000" ~ "1e+03",
+                               magnitude_overall == "10000"  ~ "1e+04",
+                               TRUE ~ as.character(magnitude_overall)))
+
+pdf("pn_ab_n_reads_station_map.pdf")
+base_world3+
+  geom_point(data= global_maps,
+             aes(x = Longitude, y = Latitude,
+                 size = magnitude, fill = magnitude),
+             shape=21, col="gray44") +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Pseudo-nitzschia abundance expressed as number of reads per station")
+dev.off()
+```
+
+![pn_ab_n_reads_station_map](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pn_ab_n_reads_station_map.pdf){width=100% height=700}
+
+<br>
+
+4. Look at the distribution of Pseudo-nitzschia OTUs along the Temperature gradient.
+
+```{r, eval=FALSE}
+library(ggforce)
+
+pdf("pn_ab_reads_station_temperature.pdf")
+PN1 %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  filter(values > 0) %>% 
+  group_by(Station.label) %>% 
+  mutate(sum = sum(values)) %>% 
+  ungroup() %>% 
+  select(Station.label, Temperature, sum, values) %>% 
+  unique() %>% 
+  mutate(group = ifelse(Temperature <= 11.5, "cold", "warm")) %>% 
+  drop_na() %>%
+  ggplot() +
+  geom_point(aes(x = Temperature, y = sum)) +
+  scale_y_log10() +
+  theme_minimal() +
+  ylab("number of reads") +
+  theme(legend.text=element_text(size=10)) +
+  ggtitle("Pseudo-nitzschia abundance expressed as number of reads per station") +
+  geom_mark_ellipse(aes(x = Temperature, y = sum, fill=group, label = group),
+                    show.legend = F,
+                    con.cap = 0,
+                    expand = unit(0.2, "cm")) +
+  scale_fill_manual(values = c("#00BFC4", "#F8766D")) +
+  annotate("text", x = 20, y = 7.5e+05, label = "
+           Min.:  143
+           Median: 6519  
+           Mean: 76096  
+           Max.: 706423 ") +
+  annotate("text", x = 2, y = 23, label = "
+           Min.:  1
+           Median: 270  
+           Mean: 3902  
+           Max.: 179138 ") 
+dev.off()
+```
+
+![pn_ab_reads_station_temperature](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pn_ab_reads_station_temperature.pdf){width=100% height=700}
+
+<br>
+
+5. Explore the difference in terms of size fraction
+
+```{r, eval=FALSE}
+
+###Venn
+library(venn)
+pdf("size_fr_venn.pdf")
+PN1 %>%
+  group_by(cid, Fraction.size) %>% 
+  summarise(sum = sum(values)) %>%
+  ungroup() %>% 
+  filter(sum > 0) %>% 
+  mutate(sum = ifelse(sum > 0,  1, 0)) %>%
+  spread(Fraction.size, sum) %>% 
+  mutate_at(vars(-cid), funs(ifelse(is.na(.), 0, .))) %>% 
+  select(-cid) %>% 
+  venn(ellipse = F, borders = F,  cexil = 0.8, cexsn = 0.9)
+dev.off()
+```
+![size_fr_venn](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/size_fr_venn.pdf){width=100% height=700}
+
+
+<br>
+
+6. Look at the geographic distribution of Pseudo-nizschia OTUs relative to Size and Depth.
+
+```{r, eval=FALSE}
+
+pdf("pn_ab_each_size_fr.pdf")
+##map of abundance per each size
+base_world3+
+  geom_point(data=global_maps, aes(x = Longitude, y = Latitude,
+                                   size = magnitude, fill = magnitude),
+             shape=21, col="gray44") +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Pseudo-nitzschia abundance expressed as number of reads per station") + 
+  facet_wrap(~Depth + Fraction.size) 
+dev.off()
+```
+
+![pn_ab_each_size_fr](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pn_ab_each_size_fr.pdf){width=100% height=700}
+
+<br>
+
+7. Look at the genus richness in terms of different OTUs and look at the geographic distibution and abundance of each of the 8 species identified.
+
+```{r, eval=FALSE}
+
+load("C:/Users/Userszn/Google Drive/PhD/TARA_Data/metaB/euk_full_names.Rdata")
+library(tidyverse)
+
+
+taxonomy <- euk_full_names %>% 
+  group_by(OTU, rank) %>%
+  summarise(name =  paste(name, collapse = ";")) %>%
+  ungroup %>%
+  spread(rank, name) %>% 
+  filter(genus == "Pseudo-nitzschia") %>% 
+  select(OTU, genus, species) %>% 
+  mutate_at(vars(species), funs(ifelse(is.na(.), "unknown"  , .)))
+
+
+global_maps_taxonomy <-  global_maps %>% 
+  rename(OTU=cid) %>% 
+  merge(taxonomy)
+
+library(stringr)
+library(treemapify)
+
+pdf("pn_taxonomy_treemap.pdf")
+global_maps_taxonomy %>% 
+  mutate(species = str_replace(species, "Pseudo-nitzschia", "P.")) %>%
+  group_by(species) %>% 
+  summarise(richness = n_distinct(OTU)) %>% 
+  ungroup() %>%
+  ggplot(aes(area=richness, fill=species, label=species)) +
+  geom_treemap(show.legend = T) + 
+  geom_treemap_text(fontface = "italic",
+                    color = "white",
+                    place = "center", show.legend = F) +
+  ggtitle("", 
+          subtitle = paste0(n_distinct(global_maps_taxonomy$OTU)," OTUs"))
+dev.off()
+```
+![pn_taxonomy_treemap](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pn_taxonomy_treemap.pdf){width=100% height=700}
+
+
+
+```{r, eval=FALSE}
+
+library(scatterpie)
+
+vediamo <- global_maps_taxonomy %>%
+  filter(values > 0) %>% 
+  group_by(Station.label) %>% 
+  mutate(Longitude=mean(Longitude), Latitude = mean(Latitude)) %>% 
+  ungroup() %>% 
+  group_by(Station.label, species) %>% 
+  mutate(fraction = sum(values)/sum) %>% 
+  ungroup() %>% 
+  select(Station.label, Longitude, Latitude, species, fraction, sum) %>% 
+  arrange(Station.label) %>% 
+  unique()  %>% 
+  mutate(species = str_replace(species, "Pseudo-nitzschia", "P.")) %>% 
+  group_by(Station.label) %>% 
+  mutate(radius = max(fraction)*4) %>% 
+  spread(species, fraction) %>% 
+  mutate_all(funs(ifelse(is.na(.), 0, .)))
+
+pdf("pn_species_distribution_map.pdf", width = 10)
+base_world3 + 
+  geom_scatterpie(aes(x=Longitude, y=Latitude, r=radius),
+                  data=vediamo,
+                  cols= c("P. australis", "P. calliantha", "P. delicatissima",
+                          "P. fraudulenta", "P. heimii", "P. multiseries",
+                          "P. pseudodelicatissima", "P. pungens", "unknown"),
+                  alpha=.7) +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  coord_fixed() +
+  scale_color_discrete() +
+  ggtitle("Pseudo-nitzschia abundance and distribution at species level") #+
+  #geom_scatterpie_legend(vediamo$radius, x=-150, y=-70)
+dev.off()
+
+##vedi Bates 2018 Fig. 2
+```
+![pn_species_distribution_map](C:/Users/Userszn/Google Drive/PhD/script/Pseudonitzschia/metaB/pn_species_distribution_map.pdf){width=100% height=700}
