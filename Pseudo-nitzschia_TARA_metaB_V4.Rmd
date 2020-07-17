@@ -1,5 +1,5 @@
 ---
-title: "Abundance and Distribution of Pseudo-nitzschia in the Global Epipelagic Ocean: V4 exploration"
+title: "Abundance and Distribution of Pseudo-nitzschia in the Global Ocean: V4 exploration"
 author: "Lucia Campese"
 date: "July 2020"
 output:
@@ -25,9 +25,6 @@ knitr::opts_chunk$set(echo = TRUE)
 </style>
 
 
-### Aim:
-The aim is to explore the Pseudo-nizschia OTUs distribution and abundance in relation to the total amount of diatoms along TARA Oceans sampling stations.
-
 <br>
 
 ### Dataset
@@ -37,7 +34,7 @@ The aim is to explore the Pseudo-nizschia OTUs distribution and abundance in rel
 
 note: so far no filtering on size fraction nor depth.
 
-```{r warning=FALSE, message=FALSE, cache=TRUE}
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.width=12, fig.height==10}
 load("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Pn_distr_stations.RData")
 
 library(tidyverse)
@@ -66,7 +63,8 @@ base_world3+
   scale_fill_viridis_c() +
   theme_minimal() +
   theme(legend.text=element_text(size=10)) +
-  ggtitle("Pseudo-nitzschia abundance and richness per station (V4)") #+
+  ggtitle("Pseudo-nitzschia abundance and richness per station (V4)") 
+
 
 Pn_abric %>%
   mutate(Station = substr(Station.label, 6, 8)) %>% 
@@ -78,6 +76,23 @@ Pn_abric %>%
   theme_bw() +
   theme(axis.text.x = element_text(angle=50, size=6, vjust = 0.5)) +
   facet_wrap(~ name, scales = "free", nrow = 2) 
+
+
+```
+
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+library(kableExtra)
+
+abric <- as.data.frame(rbind(summary(Pn_abric$abundance), summary(Pn_abric$richness)))
+
+rownames(abric) <- c("abundance", "richness")
+
+abric %>% kable() %>% 
+  kable_styling()
+
+
 
 
 Pn_abric %>%
@@ -102,19 +117,5 @@ Pn_abric %>%
   ggtitle("Relation between Pseudo-nitzschia abundance and richness per station (V4)")
 
 
-summary(Pn_abric$abundance)
-summary(Pn_abric$richness)
-
-Pn_abric %>%
-  mutate(Station = substr(Station.label, 6, 8)) %>% 
-  select(Station, abundance, richness) %>% 
-  pivot_longer(abundance:richness) %>% 
-  ggplot() +
-  aes(x=value) +
-  geom_histogram() +
-  theme_bw() +
-  geom_vline(aes(xintercept = median(value))) +
-  facet_wrap(~ name, scales = "free") 
 ```
-
 
