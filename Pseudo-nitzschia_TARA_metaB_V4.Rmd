@@ -104,17 +104,6 @@ Pn_abric %>%
 
 summary(Pn_abric$abundance)
 summary(Pn_abric$richness)
-
-Pn_abric %>%
-  mutate(Station = substr(Station.label, 6, 8)) %>% 
-  select(Station, abundance, richness) %>% 
-  pivot_longer(abundance:richness) %>% 
-  ggplot() +
-  aes(x=value) +
-  geom_histogram() +
-  theme_bw() +
-  geom_vline(aes(xintercept = median(value))) +
-  facet_wrap(~ name, scales = "free") 
 ```
 
 
