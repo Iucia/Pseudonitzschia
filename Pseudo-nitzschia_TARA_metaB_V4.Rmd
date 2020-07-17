@@ -1,0 +1,120 @@
+---
+title: "Abundance and Distribution of Pseudo-nitzschia in the Global Epipelagic Ocean: V4 exploration"
+author: "Lucia Campese"
+date: "July 2020"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>
+.column-left{
+  float: left;
+  width: 50%;
+  text-align: left;
+}
+.column-right{
+  float: right;
+  width: 50%;
+  text-align: right;
+}
+</style>
+
+
+### Aim:
+The aim is to explore the Pseudo-nizschia OTUs distribution and abundance in relation to the total amount of diatoms along TARA Oceans sampling stations.
+
+<br>
+
+### Dataset
+##### Omic data: TARA Oceans and Tara Oceans Polar circle metabarcording (V4)
+##### Taxon: Pseudonitzschia
+##### Geographic scale: Global
+
+note: so far no filtering on size fraction nor depth.
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+load("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Pn_distr_stations.RData")
+
+library(tidyverse)
+library(maps)
+
+world_map <- map_data("world")
+p <- ggplot() + coord_fixed()
+
+base_world3 <- p + geom_polygon(data=world_map,aes(x=long, y=lat,group=group),colour="gray80",size=0.2, fill="gray80")+
+  theme_bw() + coord_fixed()
+
+Pn_abric <- Pn_distr_stations %>% 
+  group_by(Station.label) %>% 
+  summarise(abundance = sum(counts), richness = n_distinct(seqId),
+            Latitude = mean(Latitude), Longitude = mean(Longitude)) %>% 
+  ungroup()
+
+
+
+#map
+base_world3+
+  geom_point(data=Pn_abric,
+             aes(x = Longitude, y = Latitude, 
+                 size = abundance,
+                 fill = richness), pch = 21, col = "black") +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  ggtitle("Pseudo-nitzschia abundance and richness per station (V4)") #+
+
+Pn_abric %>%
+  mutate(Station = substr(Station.label, 6, 8)) %>% 
+  select(Station, abundance, richness) %>% 
+  pivot_longer(abundance:richness) %>% 
+  ggplot() +
+  aes(x=Station, y = value) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=50, size=6, vjust = 0.5)) +
+  facet_wrap(~ name, scales = "free", nrow = 2) 
+
+
+Pn_abric %>%
+  mutate(Station = substr(Station.label, 6, 8)) %>% 
+  select(Station, abundance, richness) %>% 
+  pivot_longer(abundance:richness) %>% 
+  ggplot() +
+  aes(x=value) +
+  geom_histogram() +
+  theme_bw() +
+  facet_wrap(~ name, scales = "free") 
+
+
+Pn_abric %>% 
+  mutate(Station = substr(Station.label, 6, 8)) %>% 
+  ggplot() +
+  aes(x = richness, y = abundance) +
+  theme_bw() +
+  geom_point() +
+  scale_x_log10("log-scaled richness") +
+  scale_y_log10("log-scaled abundance") +
+  ggtitle("Relation between Pseudo-nitzschia abundance and richness per station (V4)")
+
+
+summary(Pn_abric$abundance)
+summary(Pn_abric$richness)
+
+Pn_abric %>%
+  mutate(Station = substr(Station.label, 6, 8)) %>% 
+  select(Station, abundance, richness) %>% 
+  pivot_longer(abundance:richness) %>% 
+  ggplot() +
+  aes(x=value) +
+  geom_histogram() +
+  theme_bw() +
+  geom_vline(aes(xintercept = median(value))) +
+  facet_wrap(~ name, scales = "free") 
+```
+
+
