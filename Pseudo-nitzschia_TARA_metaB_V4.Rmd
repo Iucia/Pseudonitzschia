@@ -39,6 +39,7 @@ load("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Pn_distr_st
 
 library(tidyverse)
 library(maps)
+library(kableExtra)
 
 world_map <- map_data("world")
 p <- ggplot() + coord_fixed()
@@ -77,13 +78,10 @@ Pn_abric %>%
   theme(axis.text.x = element_text(angle=50, size=6, vjust = 0.5)) +
   facet_wrap(~ name, scales = "free", nrow = 2) 
 
-
 ```
 
 
-
 ```{r warning=FALSE, message=FALSE, cache=TRUE}
-library(kableExtra)
 
 abric <- as.data.frame(rbind(summary(Pn_abric$abundance), summary(Pn_abric$richness)))
 
@@ -91,8 +89,6 @@ rownames(abric) <- c("abundance", "richness")
 
 abric %>% kable() %>% 
   kable_styling()
-
-
 
 
 Pn_abric %>%
@@ -115,7 +111,5 @@ Pn_abric %>%
   scale_x_log10("log-scaled richness") +
   scale_y_log10("log-scaled abundance") +
   ggtitle("Relation between Pseudo-nitzschia abundance and richness per station (V4)")
-
-
 ```
 
