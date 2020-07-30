@@ -103,6 +103,7 @@ load("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Pn_tax.RDat
 
 library(tidyverse)
 library(gridExtra)
+library(kableExtra)
 
 Percid <- 
   Pn_tax %>% 
@@ -115,12 +116,41 @@ Pn_tax %>%
   aes(x = perc.identity) +
   geom_histogram(bins = 100) +
   theme_bw() +
+  ggtitle("Percentage of identity to the PR2 reference", paste0("Pseudonitzschia, TARA V4; ", n_distinct(Pn_tax$seqId), " distinct amplicons")) +
   annotation_custom(tableGrob(Percid), xmin=65, xmax=90, ymin=3000, ymax=9000)
+
+table_percid_amplicons <- Pn_tax %>% 
+  mutate(perc.identity_rounded = round(perc.identity),
+         `rounded percentage of identity` = case_when(perc.identity_rounded < 97 ~ "< 97",
+                          perc.identity_rounded  == 97 ~ "97",
+                          perc.identity_rounded  == 98 ~ "98",
+                          perc.identity_rounded  == 99 ~ "99",
+                          perc.identity_rounded  == 100 ~ "100")) %>% 
+  group_by(`rounded percentage of identity`) %>% 
+  summarise(`distinct amplicons` = n_distinct(seqId)) %>% 
+  arrange(desc(as.numeric(`rounded percentage of identity`)))
+
+table_percid_amplicons %>%
+  kable() %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
+
+table_100_real <- Pn_tax %>% 
+  rename(`exact percentage of identity` = perc.identity) %>% 
+  filter(`exact percentage of identity` == 100) %>% 
+  group_by(`exact percentage of identity`) %>% 
+  summarise(`distinct amplicons` = n_distinct(seqId))
+
+table_100_real %>%
+  kable() %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
 ```
 
-Select only Pseudonitzschia with 100% of identity with the reference and calculate abundance and richness per each station*
-Abundance = total number of read counts of all amplicons 
-Richness = number of different amplicons
+Select only Pseudonitzschia with 100% of identity with the reference and calculate abundance and richness per each station, where
+
+- Abundance = total number of read counts of all amplicons;
+- Richness = number of different amplicons
 
 *so far no filtering on size fraction nor depth.
 
@@ -151,7 +181,8 @@ base_world3+
   scale_fill_viridis_c() +
   theme_minimal() +
   theme(legend.text=element_text(size=10)) +
-  ggtitle("Pseudo-nitzschia abundance and richness per station (V4)") 
+  ggtitle("Pseudo-nitzschia abundance and richness per station (V4)",
+          "Identity 100%") 
 
 
 Pn_abric %>%
