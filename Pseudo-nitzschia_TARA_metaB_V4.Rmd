@@ -121,11 +121,16 @@ Pn_tax %>%
 
 table_percid_amplicons <- Pn_tax %>% 
   mutate(perc.identity_rounded = round(perc.identity),
+<<<<<<< HEAD
          `rounded percentage of identity` = case_when(perc.identity_rounded < 97 ~ "< 97",
+=======
+         `percentage of identity` = case_when(perc.identity_rounded < 97 ~ "< 97",
+>>>>>>> 1500a127ab210ae9ae710be50b9fcabbe45acaf8
                           perc.identity_rounded  == 97 ~ "97",
                           perc.identity_rounded  == 98 ~ "98",
                           perc.identity_rounded  == 99 ~ "99",
                           perc.identity_rounded  == 100 ~ "100")) %>% 
+<<<<<<< HEAD
   group_by(`rounded percentage of identity`) %>% 
   summarise(`distinct amplicons` = n_distinct(seqId)) %>% 
   arrange(desc(as.numeric(`rounded percentage of identity`)))
@@ -145,6 +150,15 @@ table_100_real %>%
   kable() %>%
     kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
+=======
+  group_by(`percentage of identity`) %>% 
+  summarise(`distinct amplicons` = n_distinct(seqId)) %>% 
+  arrange(desc(as.numeric(`percentage of identity`)))
+
+table_percid_amplicons %>%
+  kable() %>%
+  kable_styling()
+>>>>>>> 1500a127ab210ae9ae710be50b9fcabbe45acaf8
 ```
 
 Select only Pseudonitzschia with 100% of identity with the reference and calculate abundance and richness per each station, where
