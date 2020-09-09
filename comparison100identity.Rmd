@@ -1,0 +1,737 @@
+---
+title: "Comparison between sequences at 100% identity"
+subtitle: "References for taxonomical assignation: PR2 vs MareChiara"
+author: "Lucia Campese"
+date: "September 2020"
+output:
+  html_document:
+    code_folding: hide
+---
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>
+.column-left{
+  float: left;
+  width: 50%;
+  text-align: left;
+}
+.column-right{
+  float: right;
+  width: 50%;
+  text-align: right;
+}
+</style>
+  
+<br>
+
+### Aim
+The Aim is to compare distribution, biogeography and taxonomic composition of the metabarcoding V4 dataset taxonomically assigned to the genus *Pseudonitzschia* using two different reference databases:
+
+a) A revised version  of the **PR2 database** (Guillouet al., 2013) for which the Chlorophyta sequences  had  been  checked  against  the  latest taxonomy (Traginet al., 2016) [info to be confirmed] => **TARA-PR2** ; 
+
+b) A selection of 27 *Pseudonitzschia* species sequences (from Valeria R.) from **MareChiara** V4 dataset => **TARA-MC**
+
+<br>
+
+### Dataset
+##### Data: TARA Oceans and Tara Oceans Polar circle metabarcording (V4)
+##### Taxon: *Pseudonitzschia*
+##### Geographic scale: Global
+
+
+```{bash, eval = FALSE}
+#1. Extract Pseudonitzschia sequences from the total V4 dataset
+
+pwd: ~/Data/metaB/V4/TARA_exploration/TARA_identity100
+
+srun grep -Ff Pn_sequenceId.txt ~/Data/metaB/V4/18S_V4_1191_samples.results > 18S_V4_1191_samples_Pn.results &
+
+###30946 sequences
+```
+
+
+### Workflow
+
+<br>
+
+#### **Building datasets**
+
+<br>
+
+##### a) **TARA-PR2**
+
+1. Check the distribution of the identity percentage of amplicons to the reference dataset (PR2)
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+library(data.table)
+library(tidyverse)
+library(gridExtra)
+
+
+load("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Pn_tax.RData")
+
+Percid <- 
+  Pn_tax %>% 
+  select(perc.identity) %>% 
+  summary()
+
+
+mainplot <-Pn_tax %>% ggplot + 
+  aes(x = perc.identity, 
+      fill = tot.numb.reads) + 
+  geom_histogram(bins = 100) + 
+  theme_bw() + 
+  # xlim(90,100) +
+  annotation_custom(tableGrob(Percid), xmin=60, xmax=70, ymin=5000, ymax=12000) +
+  ggtitle("Percentage of identity to the PR2 reference", 
+          subtitle= paste0("Pseudonitzschia, TARA V4; ", 
+                           n_distinct(Pn_tax$seqId), 
+                           " distinct amplicons")) +
+  annotate("rect", xmin=95, xmax=100, ymin=0, ymax=12000, fill="lightblue", alpha = 0.5)
+
+
+zoomplot <- Pn_tax %>% ggplot + 
+  aes(x = perc.identity, 
+      fill = tot.numb.reads) + 
+  geom_histogram() + 
+  theme_bw() + 
+  xlim(95,100) +
+  ggtitle("zooming") +
+  #theme(panel.background = element_rect(fill = 'lightblue', colour = 'lightblue')) +
+  theme(plot.background = element_rect(fill = 'lightblue'))
+
+
+
+mainplot + annotation_custom(ggplotGrob(zoomplot), xmin = 75, xmax = 90, 
+                             ymin = 5000, ymax = 11000)
+```
+
+
+The identity percentage ranges from 59.8 to 100, but almost all sequences show a value around 99% identity to the reference database.
+
+<br>
+
+2.	Extract from the dataset only the sequences with percentage of identity to PR2 database of 100% 
+
+```{R, eval = FALSE}
+
+#Take only 100% pid sequences (pid is 3rd column)
+awk '$3>99.99' 18S_V4_1191_samples_Pn.results > 18S_V4_1191_samples_Pn_identity100.results
+
+#they are 17
+
+#Extract only seq ids (column 1)
+awk '{print $1}' 18S_V4_1191_samples_Pn_identity100.results > Pn_identity100_seqid.txt
+
+#use the retrieved 17 sequence Ids to subset the distr file (i.e. the one 
+#containing seqId|sampleId|readcounts [*]
+
+srun grep -Ff Pn_identity100_seqid.txt 18S_V4_1191_samples_3readsmin.distr > 18S_V4_1191_samples_3readsmin_Pn_identity100.distr &
+
+#[*]note: I am using a distr files that contains only sequences that have a minimum number of reads equal to 3, as adviced by Nicholas Henry.
+
+#the final output is made by 14 different sequences
+
+```
+
+There are 17 different sequences assigned to Pseudonitzschia species with a **100% identity** to PR2 database. **14** out of these 17 are also occurring at least **3 times** in the dataset. 
+
+<br>
+
+3. Add the environmental information for the selected 14 sequences
+
+[note: Still waiting the information about the length of the sequences.]
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+library(data.table)
+library(tidyverse)
+
+Pn_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_3readsmin_Pn_identity100.distr") #14 sequences
+
+Pn_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_identity100.results", header = F, sep = "\t") #17 sequences
+
+
+Pn_identity100.distr.tax <- inner_join(Pn_identity100.distr, Pn_identity100.tax, by = "V1") %>% 
+  select(-V2.y)
+
+colnames(Pn_identity100.distr.tax) <- c("seqId", "sample", "readcounts", "perc.identity", "lineage", "idpr2")
+
+
+env <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_context.tsv")
+
+Pn_identity100.distr.tax.env <- inner_join(Pn_identity100.distr.tax, env)
+
+
+Pn_identity100.distr.tax.env1 <- splitstackshape::cSplit(Pn_identity100.distr.tax.env, "lineage", "|") %>% 
+  select(seqId:minimum.generation.time.h,lineage_13) %>% 
+  mutate(species = case_when(lineage_13 == "*" ~ "Pseudo-nitzschia+unknown",
+                             TRUE ~ as.character(lineage_13))) %>% 
+  select(-lineage_13) %>% 
+  splitstackshape::cSplit("species", "+") %>%
+  rename(species = species_2) %>% 
+  group_by(seqId) %>% 
+  ungroup() %>% 
+  select(seqId:readcounts, perc.identity:idpr2, species, Station.label:Depth.chloro.max)
+
+
+final_tara_pr2<- Pn_identity100.distr.tax.env1 %>% 
+  select(seqId, species, sample, readcounts, Station.label:Depth.chloro.max) %>%
+  mutate(dataset = c("TARA-PR2"))
+
+
+#final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info. 
+```
+
+<br>
+
+##### b) **TARA-MC**
+
+<br>
+
+1. Extraction of sequences annotated at 100% with the reference:
+
+[length to be checked]
+
+```{bash, eval = FALSE}
+
+pwd: /home/lcampese/Data/metaB/V4/Blast_MC_TO/identity100
+
+#remove the "size" part after the id of each sequence
+cut -f1 -d";" Pn_tara_candi_final_pid100_list.txt > Pn_tara_candi_final_pid100_list_clean.txt
+
+#subset the distr file using my seq Ids
+
+srun grep -Ff Pn_tara_candi_final_pid100_list_clean.txt ~/Data/metaB/V4/18S_V4_1191_samples_3readsmin.distr > 18S_V4_1191_samples_3readsmin_Pn_candi_identity100.distr &
+
+```
+
+There are 508 different sequences assigned to Pseudonitzschia species with a **100% identity** to MareChiara database. **210** out of these 508 are also occurring at least **3 times** in the dataset. 
+
+<br> 
+
+2. Add the environmental information for the selected 210 sequences
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+
+Pn_candi_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/cfr100pid/18S_V4_1191_samples_3readsmin_Pn_candi_identity100.distr") 
+
+colnames(Pn_candi_identity100.distr) <- c("seqId", "sample", "readcounts")
+
+paste0(n_distinct(Pn_candi_identity100.distr$seqId), " sequence Ids")
+
+Pn_candi_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/cfr100pid/Pn_tara_candi_final_pid100.txt") %>%
+  separate(V1, into = c("seqId", "size"), sep = ";") %>% 
+  rename(tax = V2, pid = V3) %>% 
+  select(seqId, tax, pid)
+
+
+Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr)
+
+
+env <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_context.tsv")
+
+Pn_candi_identity100.distr.tax.env <- inner_join(Pn_candi_identity100.distr.tax, env) %>% 
+   select(seqId:readcounts,Pangaea_id:minimum.generation.time.h)
+
+
+final_tara_mc <- Pn_candi_identity100.distr.tax.env %>% 
+  mutate(species = case_when(grepl("allochrona", tax) ~ "allochrona",
+                             grepl("americana", tax) ~ "americana",
+                             grepl("arenysensis", tax) ~ "arenysensis",
+                             grepl("australis", tax) ~ "australis",
+                             grepl("batesiana", tax) ~ "batesiana",
+                             grepl("brasiliana", tax) ~ "brasiliana",
+                             grepl("calliantha", tax) ~ "calliantha",
+                             grepl("cuspidata", tax) ~ "cuspidata",
+                             grepl("decipiens", tax) ~ "decipiens",
+                             grepl("delicatissima", tax) ~ "delicatissima",
+                             grepl("fraudulenta", tax) ~ "fraudulenta",
+                             grepl("fukuyoi", tax) ~ "fukuyoi",
+                             grepl("galaxiae", tax) ~ "galaxiae",
+                             grepl("kodamae", tax) ~ "kodamae",
+                             grepl("mannii", tax) ~ "mannii",
+                             grepl("micropora", tax) ~ "micropora",
+                             grepl("multiseries", tax) ~ "multiseries",
+                             grepl("multistriata", tax) ~ "multistriata",
+                             grepl("pseudodelicatissima", tax) ~ "pseudodelicatissima",
+                             grepl("pungens", tax) ~ "pungens",
+                             grepl("sabit", tax) ~ "sabit",
+                             grepl("turgidula", tax) ~ "turgidula")) %>% 
+  select(seqId, species, sample, readcounts, Station.label:Depth.chloro.max) %>% 
+  mutate(dataset = c("TARA-MC"))
+
+
+```
+
+
+#### **Comparison** 
+
+1. How big is the overlap between the two obtained datasets?
+
+<div class="column-left">
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.height=4, fig.width=4, fig.align="center"}
+
+#Sequences in common: Venn Diagram
+
+tara_pr2_venn <- final_tara_pr2 %>% 
+  select(seqId) %>% 
+  mutate(`TARA-PR2` = c("1")) %>% 
+  unique()
+
+tara_mc_venn <- final_tara_mc %>% 
+  select(seqId) %>% 
+  mutate(`TARA-MC` = c("1")) %>% 
+  unique()
+
+
+print("Sequence Ids in common")
+
+full_join(tara_pr2_venn, tara_mc_venn) %>% 
+  replace_na(list(`TARA-PR2` = 0, `TARA-MC` = 0)) %>% 
+  select(-seqId) %>%
+  venn::venn(ellipse = F, borders = F,  cexil = 0.8, cexsn = 0.9,
+             ilcs = 0.8, sncs = 0.8, box = F, col = "black",
+             zcolor = "skyblue, lightgreen")
+```
+</div><div class="column-right">
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.height=4, fig.width=4, fig.align="center"}
+
+###species in common
+tara_pr2_venn_species <- final_tara_pr2 %>% 
+  select(species) %>% 
+  mutate(`TARA-PR2` = c("1")) %>% 
+  unique()
+
+tara_mc_venn_species <- final_tara_mc %>% 
+  select(species) %>% 
+  mutate(`TARA-MC` = c("1")) %>% 
+  unique()
+
+
+print("Species in common")
+
+full_join(tara_pr2_venn_species, tara_mc_venn_species) %>% 
+  replace_na(list(`TARA-PR2` = 0, `TARA-MC` = 0)) %>% 
+  select(-species) %>% 
+  venn::venn(ellipse = F, borders = F,  cexil = 0.8, cexsn = 0.9,
+             ilcs = 0.8, sncs = 0.8, box = F, col = "black",
+             zcolor = "skyblue, lightgreen")
+```
+</div>
+
+<br>
+
+The two datasets are quite different in the number of amplicons. **TARA-PR2** has **14 sequences**, while **TARA-MC** has **508**. There are **8 shared sequences** between the two. In terms of species, they share 4 species, with TARA-PR2 containing 3 species never detected in TARA-MC, and the latter with 17 species never annotated in TARA-PR2. 
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center"}
+
+plot1 <- rbind(final_tara_pr2, final_tara_mc) %>%  
+  group_by(dataset) %>% 
+  summarise(tot.numb.reads = sum(readcounts)) %>% 
+  ggplot() +
+  aes(x=dataset, y=tot.numb.reads, fill = dataset) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  theme_bw() +
+  scale_fill_manual(values = c("TARA-MC" = "lightgreen",
+                               "TARA-PR2" = "skyblue")) +
+  xlab("") +
+  ylab("total number of read counts")
+
+plot2 <-  rbind(final_tara_pr2, final_tara_mc) %>% 
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(seqId, dataset) %>% 
+  summarise(tot.numb.reads = sum(readcounts)) %>% 
+  ggplot() +
+  geom_histogram(aes(tot.numb.reads, fill=dataset), alpha=0.5) +
+  theme(legend.position = "none") +
+  theme_bw() +
+  scale_x_log10() +
+  xlab("read counts per sequence Id") +
+  scale_fill_manual(values = c("TARA-MC" = "lightgreen",
+                               "TARA-PR2" = "skyblue")) 
+
+library(patchwork)
+
+((plot1 | plot2) & theme(legend.position = "bottom")) + plot_layout(guides = "collect")
+```
+
+
+The total number of reads (plot on the left) is higher than 400000 in both datasets, with TARA-MC containing around 50000 of reads more than TARA-MC.
+
+By looking at the distribution of the total number of reads per each amplicon (plot on the right), we can notice that TARA-MC has a high number of sequences with few read counts, and few very abundant sequences. This is not evident for TARA-PR2, that displays a more eterogeneous pattern. 
+
+<br>
+
+2. How is the distribution of **richness** and **abundance** per **sampling station**?
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center", fig.width=12, fig.height=10}
+
+rbind(final_tara_pr2, final_tara_mc) %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label, dataset) %>% 
+  summarise(tot.reads.station = sum(readcounts),
+         richness.station.spp =n_distinct(species)) %>% 
+  ungroup() %>% 
+  pivot_longer(tot.reads.station:richness.station.spp) %>% 
+  ggplot() +
+  aes(x=Station.label, y=value, col=dataset, group=dataset) +
+  geom_line(size=1.5) +
+  theme_bw() +
+  scale_color_manual(values = c("TARA-MC" = "lightgreen",
+                               "TARA-PR2" = "skyblue")) +
+  theme(axis.text.x = element_text(angle=50, size=6, vjust = 0.5))  +
+  facet_wrap(~ name, scales = "free", nrow = 2)
+```
+
+```{r eval=FALSE}
+
+rbind(final_tara_pr2, final_tara_mc) %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label, dataset) %>% 
+  summarise(tot.reads.station = sum(readcounts)) %>% 
+  ungroup() %>%
+  ggplot() +
+  geom_histogram(aes(tot.reads.station, fill = dataset), alpha=0.5) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_x_log10() +
+  xlab("abundance per station") +
+   scale_fill_manual(values = c("TARA-MC" = "lightgreen",
+                               "TARA-PR2" = "skyblue")) +
+  ggtitle("Pseudo-nitzschia abundance expressed as number of reads per station") +
+  facet_wrap(~dataset, scales="free_y")
+```
+
+
+
+The **richness** - i.e. number of species detected - (upper plot) follows the same trend between the two datasets along the sampling stations, with some exceptions (i.e. stations 18-25, 114-115, 180-188). 
+This trend is even more evident when looking at the total abundance per station - expressed as total number of read counts per stations- (bottom plot), where the two lines overlap for almost all samples. One exception is the case of station 155, where TARA-MC exceeds TARA-PR2 by 4000 units ca.
+
+<br>
+
+- Let's look at the geographical distribution of these values
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.height=10, fig.width=12}
+
+library(maps)
+
+world_map <- map_data("world")
+p <- ggplot() + coord_fixed()
+
+base_world3 <- p + geom_polygon(data=world_map,aes(x=long, y=lat,group=group),colour="gray80",size=0.2, fill="gray80")+
+  theme_bw() + coord_fixed()
+
+
+#map
+combined_datasets_map <- rbind(final_tara_pr2, final_tara_mc) %>%
+  group_by(Station.label, dataset) %>% 
+  mutate(Lat= mean(Latitude),
+         Long=mean(Longitude),
+         abundance.per.station = sum(readcounts),
+         richness.per.station.amplicons = n_distinct(seqId),
+         richness.per.station.species = n_distinct(species)) %>%
+  ungroup() %>% 
+  select(seqId, species, Station.label, Lat, Long, dataset, abundance.per.station,
+         richness.per.station.amplicons, richness.per.station.species) %>% unique()
+  
+base_world3+
+  geom_point(data=combined_datasets_map,
+             aes(x = Long, y = Lat, 
+                 size = abundance.per.station,
+                 fill = richness.per.station.species),
+                 pch = 21, col = "black") +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  facet_wrap(~dataset, nrow = 2) +
+  ggtitle("Pseudo-nitzschia abundance and richness per station (V4)",
+        "Identity 100%") 
+```
+
+
+<br>
+
+<br>
+
+3. Is there a **correlation** between **richness** and **abundance**?
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center", fig.width=12, fig.height=10}
+corpr2 <- rbind(final_tara_pr2, final_tara_mc) %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label, dataset) %>% 
+  summarise(tot.reads.station = sum(readcounts),
+            richness.station.spp =n_distinct(species)) %>% 
+  ungroup() %>% 
+  filter(dataset == "TARA-PR2")
+
+corpr2.res<-psych::corr.test(corpr2$richness.station.spp, corpr2$tot.reads.station, method = "spearman")
+#print(corpr2.res, short = F)
+
+print("correlation between richness and abundance in TARA-PR2")
+cor.test(corpr2$richness.station.spp, corpr2$tot.reads.station, method = "spearman")
+
+cormc <- rbind(final_tara_pr2, final_tara_mc) %>%
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label, dataset) %>% 
+  summarise(tot.reads.station = sum(readcounts),
+            richness.station.spp =n_distinct(species)) %>% 
+  ungroup() %>% 
+  filter(dataset == "TARA-MC")
+
+
+cormc.res<-psych::corr.test(cormc$richness.station.spp, cormc$tot.reads.station, method = "spearman")
+#print(cormc.res, short = F)
+
+print("correlation between richness and abundance in TARA-MC")
+cor.test(cormc$richness.station.spp, cormc$tot.reads.station, method = "spearman")
+
+```
+
+There is a significant correlation between richness and abundance in both dataset, weak in TARA-PR2 (rho = 0.3) and stronger in TARA-MC (rho = 0.5).
+
+<br>
+
+<br>
+
+4. Is there **spatial autocorrelation**?
+
+<div class="column-left">
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center"}
+
+print("TARA-PR2")
+final_tara_pr2 %>% 
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label, dataset) %>% 
+  summarise(sum = sum(readcounts)) %>% 
+  ungroup() %>%
+  arrange(Station.label) %>% 
+  pull(sum) %>% 
+  acf
+```
+</div><div class="column-right">
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center"}
+print("TARA-MC")
+final_tara_mc %>% 
+  mutate(Station.label = substr(Station.label, 6, 8)) %>% 
+  group_by(Station.label, dataset) %>% 
+  summarise(sum = sum(readcounts)) %>% 
+  ungroup() %>%
+  arrange(Station.label) %>% 
+  pull(sum) %>% 
+  acf
+```
+</div>
+
+
+The plots show thata **there is spatial autocorrelation in TARA-PR2, but not in TARA-MC**. 
+
+- In particular, in TARA-PR2 there are two spikes that fall outside the bonds (one at 1 and one at 5), meaning that the total abundance in each station consistently influences the abundance in the following station and the 5th station after.
+
+- In contrast, in the TARA-MC graph the only value outside the bonds is the spike at lag 0, that indicates the correlation of a sample with itself. The abundance per station values are thus here independent of each other if only trying to explain them with themselves (the autocorrelation property).
+
+How to deal with that?
+Spatial autocorrelation have implications when applying statistical methods (to be discussed) 
+
+<br>
+
+<br>
+
+
+5. What about **taxonomy**?
+
+5.1. Is the taxonomical annotation of the 8 shared sequence the same?
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+
+#common sequences: is the taxonomy the same?
+
+cfr_taxonomy_shared <- final_tara_pr2 %>%
+  select(seqId, species) %>%
+  rename(PR2 = species) %>% 
+  inner_join(final_tara_mc[,c(1:6)]) %>%
+  rename(MC = species) %>%
+  select(seqId, PR2, MC) %>% 
+  unique() #%>% 
+ # mutate(MC = case_when(grepl("cuspidata", MC_0) ~ "cuspidata",
+  #                          grepl("americana", MC_0) ~ "americana",
+  #                          grepl("arenysensis", MC_0) ~ "arenysensis",
+   #                         grepl("fraudulenta", MC_0) ~ "fraudulenta",
+    #                        grepl("pungens", MC_0) ~ "pungens",
+   #                         grepl("australis", MC_0) ~ "australis",
+     #                       grepl("calliantha", MC_0) ~ "calliantha")) #%>% 
+  #select(PR2, MC)
+
+library(kableExtra)
+
+cfr_taxonomy_shared %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+The two taxonomies do not correspond. Why?
+
+<br>
+
+
+5.2. Let's look at the overall taxonomic repartition in the two datasets.
+
+<div class="column-left">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+library(treemapify)
+
+final_tara_pr2 %>% 
+  group_by(species) %>% 
+  summarise(richness = n_distinct(seqId)) %>% 
+  ungroup() %>%
+  ggplot(aes(area=richness, fill=species, label=species)) +
+  geom_treemap(show.legend = F) + 
+ geom_treemap_text(fontface = "italic",
+                    color = "black") +
+                   # place = "center") +
+  scale_fill_brewer(palette = "Blues") +
+  ggtitle(paste0("Taxonomical ripartition of the ",
+                 n_distinct(final_tara_pr2$seqId), " amplicons (PR2 ref.)"),
+          paste0(n_distinct(final_tara_pr2$Station.label), " sampling stations;",
+                 sum(final_tara_pr2$readcounts), "reads"))
+
+
+#final_tara_pr2 %>% 
+ # ggplot() +
+ # aes(x = "", y = tot.numb.reads, fill = species) +
+ # geom_bar(width = 1, stat = "identity") +
+ # coord_polar("y", start=0) +
+ # theme_bw() +
+ # scale_fill_brewer(palette = "Paired") +
+ 
+```
+</div><div class="column-right">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+#tassonomia mia:
+final_tara_mc %>%
+  group_by(species) %>% 
+  summarise(richness = n_distinct(seqId),
+            occupancy = n_distinct(Station.label)) %>%
+  ungroup() %>%
+  mutate(species_sel = ifelse(occupancy < 50, "others (*)",
+                              species)) %>% 
+  ungroup() %>%
+  group_by(species_sel) %>% 
+  summarise(richness2 = sum(richness)) %>% 
+  ggplot(aes(area=richness2, fill=species_sel, label=species_sel)) +
+  geom_treemap(show.legend = F) + 
+  geom_treemap_text(fontface = "italic",
+                    color = "black") +
+  # place = "center") +
+  scale_fill_brewer(palette = "BuGn") +
+  ggtitle(paste0("Taxonomical ripartition of the ",
+                 n_distinct(final_tara_mc$seqId), " amplicons (MC ref.)"),
+          paste0(n_distinct(final_tara_mc$Station.label), " sampling stations; MC annotation; ",
+                 sum(final_tara_mc$readcounts), "reads")) +
+  labs(caption = "(*) species occurring in less than 50 stations")
+
+```
+</div>
+
+```{r eval=FALSE, message=FALSE, cache=TRUE}
+print("ue")
+```
+
+
+
+<br>
+
+5.3. Let's look at the **geographical distribution** of the species
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.height=10, fig.width=12}
+###devo unirli in un unico file e facewrappare tutto:
+
+
+library(scatterpie)
+
+combined_datasets_mappie <- rbind(final_tara_pr2, final_tara_mc) %>% 
+  group_by(Station.label, dataset) %>% 
+  mutate(tot.abundance.per.station = sum(readcounts),
+         Lat = mean(Latitude),
+         Long = mean(Longitude)) %>% 
+  ungroup() %>% 
+  group_by(species, dataset) %>% 
+  mutate(occupancy = n_distinct(Station.label)) %>% 
+  ungroup() %>% 
+  mutate(species_sel = ifelse(occupancy < 50, "others (*)",
+                              as.character(species))) %>% 
+  group_by(species_sel, Station.label, dataset) %>% 
+  mutate(sel.species.abundance.per.station = sum(readcounts),
+         fraction = sel.species.abundance.per.station/tot.abundance.per.station) %>% 
+  ungroup() %>% 
+  select(Station.label, Long, Lat, species_sel, fraction, dataset) %>% 
+  arrange(Station.label) %>% 
+  unique()  %>% 
+  group_by(Station.label) %>% 
+  mutate(radius = max(fraction)*4) %>% 
+  ungroup() %>% 
+  spread(species_sel, fraction) %>% 
+  mutate_all(funs(ifelse(is.na(.), 0, .)))
+
+
+base_world3 + 
+  geom_scatterpie(aes(x=Long, y=Lat, r=radius),
+                  data=combined_datasets_mappie,
+                  cols= c("arenysensis", "calliantha", "cuspidata", "pungens",
+                          "seriata", "unknown", "americana",
+                          "australis", "micropora", "delicatissima",
+                          "galaxiae", "brasiliana", "others (*)"),
+                  alpha=.7) +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  coord_fixed() +
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(~dataset, nrow = 2) +
+  ggtitle("Pseudo-nitzschia abundance and distribution at species level")  +
+  labs(caption = "(*) species occurring in less than 50 stations")
+#+
+  #geom_scatterpie_legend(combined_datasets_mappie$radius, x=-150, y=-70)
+```
+
+
+<br>
+
+
+6. What about **size classes**? Which one holds the highest number of sequences? Is there overlap among different classes?
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+
+print("Combining the two dataset; Overlap considering seqId")
+
+rbind(final_tara_pr2, final_tara_mc) %>% 
+  unite("Fraction.size", lower.size.fraction:upper.size.fraction, sep = "-") %>% 
+  mutate(Fraction.size = case_when(Fraction.size %in% c("3-20", "5-20") ~ "nano",
+                                 Fraction.size == "20-180" ~ "micro",
+                                 Fraction.size == "180-2000" ~ "meso",
+                                 TRUE ~ "other")) %>%
+  select(seqId, readcounts, Fraction.size) %>%
+  group_by(seqId, Fraction.size) %>%
+  summarise(sum = sum(readcounts)) %>%
+  ungroup() %>%
+  mutate(sum = ifelse(sum > 0,  1, 0)) %>%
+  spread(Fraction.size, sum) %>%
+  mutate_at(vars(-seqId), funs(ifelse(is.na(.), 0, .))) %>%
+  select(-c("seqId", "other")) %>%
+  venn::venn(ellipse = F, borders = F,  cexil = 0.8, cexsn = 0.9)
+```
+
+
+
+Faccio un confronto tra le distribuzioni mie e le loro al 100% per rispondere alla domanda "Qual e' l'impatto di avere un data reference fatto bene sull'assegnazione tassonomica?"):
+-	Statistiche e mappe
+Le specie sono le stesse?
+La distribuzione e' la stessa?
+-	Albero1 che include le reference + nostre 100% + Tara assegnate 100% (**)
