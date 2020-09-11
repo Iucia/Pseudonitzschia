@@ -120,52 +120,69 @@ The identity percentage ranges from 59.8 to 100, but almost all sequences show a
 
 ```{R, eval = FALSE}
 
+#take only sequences with at least 3 reads (seen three times in the whole dataset) [*]
+srun awk '$2>2' 18S_V4_1191_samples_Pn.results > 18S_V4_1191_samples_Pn_3readsmin.results &
+
+#wc -l: 25453 18S_V4_1191_samples_Pn_3readsmin.results
+#wc -l: 30946 18S_V4_1191_samples_Pn.results
+
+
+#[*]as adviced by Nicholas Henry.
+  
+  
 #Take only 100% pid sequences (pid is 3rd column)
-awk '$3>99.99' 18S_V4_1191_samples_Pn.results > 18S_V4_1191_samples_Pn_identity100.results
+awk '$3>99.99' 18S_V4_1191_samples_Pn_3readsmin.results > 18S_V4_1191_samples_Pn_pid100_3readsmin.results
 
 #they are 17
 
 #Extract only seq ids (column 1)
-awk '{print $1}' 18S_V4_1191_samples_Pn_identity100.results > Pn_identity100_seqid.txt
+awk '{print $1}' 18S_V4_1191_samples_Pn_pid100_3readsmin.results > 18S_V4_1191_samples_Pn_pid100_3readsmin_seqid.txt
 
 #use the retrieved 17 sequence Ids to subset the distr file (i.e. the one 
-#containing seqId|sampleId|readcounts [*]
+#containing seqId|sampleId|readcounts
 
-srun grep -Ff Pn_identity100_seqid.txt 18S_V4_1191_samples_3readsmin.distr > 18S_V4_1191_samples_3readsmin_Pn_identity100.distr &
+srun grep -Ff 18S_V4_1191_samples_Pn_pid100_3readsmin_seqid.txt ~/Data/metaB/V4/18S_V4_1191_samples.distr > 18S_V4_1191_samples_Pn_pid100_3readsmin.distr &
 
-#[*]note: I am using a distr files that contains only sequences that have a minimum number of reads equal to 3, as adviced by Nicholas Henry.
 
-#the final output is made by 14 different sequences
+#the final output is made by 17 different sequences
 
 ```
 
-There are 17 different sequences assigned to Pseudonitzschia species with a **100% identity** to PR2 database. **14** out of these 17 are also occurring at least **3 times** in the dataset. 
+There are **17** different **sequences** assigned to Pseudonitzschia species with a **100% identity** to PR2 database and occurring at least **3 times** in the dataset. 
 
 <br>
 
-3. Add the environmental information for the selected 14 sequences
+3. Add the environmental information for the selected 17 sequences
 
-[note: Still waiting the information about the length of the sequences.]
+Note: All sequences have length >380 bp [[[it's sequence length and not wuery cover?]]]:
 
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE}
 library(data.table)
 library(tidyverse)
 
-Pn_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_3readsmin_Pn_identity100.distr") #14 sequences
+Pn_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.distr") #14 sequences
 
-Pn_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_identity100.results", header = F, sep = "\t") #17 sequences
+Pn_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.results", header = F, sep = "\t") #17 sequences
+
+###ADD LENGTH INFO
+length.info <-fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin_seqid_length_seq_clean")
 
 
-Pn_identity100.distr.tax <- inner_join(Pn_identity100.distr, Pn_identity100.tax, by = "V1") %>% 
+Pn_identity100.tax.length <- length.info %>% 
+  rename(length = V2) %>% 
+  left_join(Pn_identity100.tax)
+
+
+Pn_identity100.distr.tax.length <- inner_join(Pn_identity100.distr, Pn_identity100.tax.length, by = "V1") %>% 
   select(-V2.y)
 
-colnames(Pn_identity100.distr.tax) <- c("seqId", "sample", "readcounts", "perc.identity", "lineage", "idpr2")
+colnames(Pn_identity100.distr.tax.length) <- c("seqId", "sample", "readcounts", "length", "perc.identity", "lineage", "idpr2")
 
 
 env <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_context.tsv")
 
-Pn_identity100.distr.tax.env <- inner_join(Pn_identity100.distr.tax, env)
+Pn_identity100.distr.tax.env <- inner_join(Pn_identity100.distr.tax.length, env)
 
 
 Pn_identity100.distr.tax.env1 <- splitstackshape::cSplit(Pn_identity100.distr.tax.env, "lineage", "|") %>% 
@@ -177,18 +194,49 @@ Pn_identity100.distr.tax.env1 <- splitstackshape::cSplit(Pn_identity100.distr.ta
   rename(species = species_2) %>% 
   group_by(seqId) %>% 
   ungroup() %>% 
-  select(seqId:readcounts, perc.identity:idpr2, species, Station.label:Depth.chloro.max)
+  select(seqId, length, sample, readcounts, perc.identity:idpr2, species, Station.label:Depth.chloro.max)
 
 
 final_tara_pr2<- Pn_identity100.distr.tax.env1 %>% 
-  select(seqId, species, sample, readcounts, Station.label:Depth.chloro.max) %>%
+  select(seqId, length, species, sample, readcounts, Station.label:Depth.chloro.max) %>%
   mutate(dataset = c("TARA-PR2"))
 
 
-#final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info. 
+#final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info + LENGTH
 ```
 
+<div class="column-left">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+distr.lengths <- final_tara_pr2 %>% 
+  select(length) %>% 
+  rename('sequence length' = length) %>% 
+  summary()
+
+
+library(kableExtra)
+
+distr.lengths %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+</div><div class="column-right">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+final_tara_pr2 %>% 
+  select(seqId, length) %>% 
+  unique() %>% 
+  ggplot() + 
+  aes(x = length) + 
+  geom_histogram(bins = 100, stat = "count") + 
+  theme_bw() 
+```
+</div>
+
 <br>
+
+
+```{r eval=FALSE, message=FALSE, cache=TRUE}
+print("ue")
+```
 
 ##### b) **TARA-MC**
 
@@ -205,21 +253,32 @@ pwd: /home/lcampese/Data/metaB/V4/Blast_MC_TO/identity100
 #remove the "size" part after the id of each sequence
 cut -f1 -d";" Pn_tara_candi_final_pid100_list.txt > Pn_tara_candi_final_pid100_list_clean.txt
 
-#subset the distr file using my seq Ids
 
-srun grep -Ff Pn_tara_candi_final_pid100_list_clean.txt ~/Data/metaB/V4/18S_V4_1191_samples_3readsmin.distr > 18S_V4_1191_samples_3readsmin_Pn_candi_identity100.distr &
+#508 sequenze 
+
+#subset the results file using my seq Ids
+srun grep -Ff Pn_tara_candi_final_pid100_list_clean.txt ~/Data/metaB/V4/TARA_exploration/18S_V4_1191_samples_Pn_3readsmin.results > 18S_V4_1191_samples_Pncandi_3readsmin_pid100.results &
+
+#324 sequenze
+
+#extract the ids for these 324 seq
+awk '{print $1}' 18S_V4_1191_samples_Pncandi_3readsmin_pid100.results > Pn_tara_candi_final_pid100_3reads_list_clean.txt
+
+#subset the distr file using these 324 seqIds
+
+srun grep -Ff Pn_tara_candi_final_pid100_3reads_list_clean.txt ~/Data/metaB/V4/18S_V4_1191_samples.distr > 18S_V4_1191_samples_Pncandi_3readsmin_pid100.distr &
 
 ```
 
-There are 508 different sequences assigned to Pseudonitzschia species with a **100% identity** to MareChiara database. **210** out of these 508 are also occurring at least **3 times** in the dataset. 
+There are 324 different sequences assigned to Pseudonitzschia species with a **100% identity** to MareChiara database and occurring at least **3 times** in the dataset. 
 
 <br> 
 
-2. Add the environmental information for the selected 210 sequences
+2. Add the environmental information for the selected 324 sequences
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE}
 
-Pn_candi_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/cfr100pid/18S_V4_1191_samples_3readsmin_Pn_candi_identity100.distr") 
+Pn_candi_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/cfr100pid/18S_V4_1191_samples_Pncandi_3readsmin_pid100.distr") 
 
 colnames(Pn_candi_identity100.distr) <- c("seqId", "sample", "readcounts")
 
@@ -231,13 +290,17 @@ Pn_candi_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudon
   select(seqId, tax, pid)
 
 
-Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr)
+#subset tax (still with 508 seq) using the distr file (with the corret 324 seq) {the aim is to add the taxonomy info}
 
+Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr, by = "seqId")
+
+
+##add env
 
 env <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_context.tsv")
 
 Pn_candi_identity100.distr.tax.env <- inner_join(Pn_candi_identity100.distr.tax, env) %>% 
-   select(seqId:readcounts,Pangaea_id:minimum.generation.time.h)
+  select(seqId:readcounts,Pangaea_id:minimum.generation.time.h)
 
 
 final_tara_mc <- Pn_candi_identity100.distr.tax.env %>% 
@@ -263,14 +326,19 @@ final_tara_mc <- Pn_candi_identity100.distr.tax.env %>%
                              grepl("pungens", tax) ~ "pungens",
                              grepl("sabit", tax) ~ "sabit",
                              grepl("turgidula", tax) ~ "turgidula")) %>% 
-  select(seqId, species, sample, readcounts, Station.label:Depth.chloro.max) %>% 
+  mutate(length = "tobedone") %>% 
+  select(seqId, length, species, sample, readcounts, Station.label:Depth.chloro.max) %>%
   mutate(dataset = c("TARA-MC"))
-
-
 ```
+
+<br>
+
+<br>
 
 
 #### **Comparison** 
+
+<br>
 
 1. How big is the overlap between the two obtained datasets?
 
@@ -327,7 +395,7 @@ full_join(tara_pr2_venn_species, tara_mc_venn_species) %>%
 
 <br>
 
-The two datasets are quite different in the number of amplicons. **TARA-PR2** has **14 sequences**, while **TARA-MC** has **508**. There are **8 shared sequences** between the two. In terms of species, they share 4 species, with TARA-PR2 containing 3 species never detected in TARA-MC, and the latter with 17 species never annotated in TARA-PR2. 
+The two datasets are quite different in the number of amplicons. **TARA-PR2** has **17 sequences**, while **TARA-MC** has **324**. There are **8 shared sequences** between the two. In terms of species, they share 4 species, with TARA-PR2 containing 3 species never detected in TARA-MC, and the latter with 17 species never annotated in TARA-PR2. 
 
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center"}
@@ -412,7 +480,7 @@ rbind(final_tara_pr2, final_tara_mc) %>%
 
 
 
-The **richness** - i.e. number of species detected - (upper plot) follows the same trend between the two datasets along the sampling stations, with some exceptions (i.e. stations 18-25, 114-115, 180-188). 
+The **richness** - i.e. number of species detected - (upper plot) follows the same trend between the two datasets along the sampling stations, with few exceptions (i.e. stations 31, 47, 54). 
 This trend is even more evident when looking at the total abundance per station - expressed as total number of read counts per stations- (bottom plot), where the two lines overlap for almost all samples. One exception is the case of station 155, where TARA-MC exceeds TARA-PR2 by 4000 units ca.
 
 <br>
@@ -496,7 +564,7 @@ cor.test(cormc$richness.station.spp, cormc$tot.reads.station, method = "spearman
 
 ```
 
-There is a significant correlation between richness and abundance in both dataset, weak in TARA-PR2 (rho = 0.3) and stronger in TARA-MC (rho = 0.5).
+There is a significant correlation between richness and abundance in both dataset, weaker in TARA-PR2 (rho = 0.3) and stronger in TARA-MC (rho = 0.5).
 
 <br>
 
@@ -532,11 +600,13 @@ final_tara_mc %>%
 </div>
 
 
-The plots show thata **there is spatial autocorrelation in TARA-PR2, but not in TARA-MC**. 
+The plots show thata **there is spatial autocorrelation in TARA-PR2**. 
 
-- In particular, in TARA-PR2 there are two spikes that fall outside the bonds (one at 1 and one at 5), meaning that the total abundance in each station consistently influences the abundance in the following station and the 5th station after.
+In particular, in TARA-PR2 graph (left) there is one spike at 1 that clearly falls outside the bonds, meaning that the total abundance in each station consistently influences the abundance in the following station.
 
-- In contrast, in the TARA-MC graph the only value outside the bonds is the spike at lag 0, that indicates the correlation of a sample with itself. The abundance per station values are thus here independent of each other if only trying to explain them with themselves (the autocorrelation property).
+Moreover, in both dataset there is a peak at 14 that slightly exceeds the outside bonds and one at 15 that almost does.
+
+Besides that, the abundance per station values are independent of each other if only trying to explain them with themselves (the autocorrelation property).
 
 How to deal with that?
 Spatial autocorrelation have implications when applying statistical methods (to be discussed) 
