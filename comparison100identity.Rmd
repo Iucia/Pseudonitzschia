@@ -169,6 +169,14 @@ Pn_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzsch
 length.info <-fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin_seqid_length_seq_clean")
 
 
+
+###ADD LENGTH INFO
+length.info <-fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin_seqid_length_seq_clean")
+
+Pn_identity100.tax.length <- length.info %>% 
+  rename(length = V2) %>% 
+  left_join(Pn_identity100.tax)
+
 Pn_identity100.tax.length <- length.info %>% 
   rename(length = V2) %>% 
   left_join(Pn_identity100.tax)
@@ -204,6 +212,32 @@ final_tara_pr2<- Pn_identity100.distr.tax.env1 %>%
 
 #final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info + LENGTH
 ```
+
+<div class="column-left">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+distr.lengths <- final_tara_pr2 %>% 
+  select(length) %>% 
+  rename('sequence length' = length) %>% 
+  summary()
+
+
+library(kableExtra)
+
+distr.lengths %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+</div><div class="column-right">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+final_tara_pr2 %>% 
+  select(seqId, length) %>% 
+  unique() %>% 
+  ggplot() + 
+  aes(x = length) + 
+  geom_histogram(bins = 100, stat = "count") + 
+  theme_bw() 
+```
+</div>
 
 <div class="column-left">
 ```{r warning=FALSE, message=FALSE, cache=TRUE}
@@ -294,6 +328,7 @@ Pn_candi_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudon
 
 Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr, by = "seqId")
 
+Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr, by = "seqId")
 
 ##add env
 
@@ -603,6 +638,13 @@ final_tara_mc %>%
 
 
 The plots show thata **there is spatial autocorrelation in TARA-PR2**. 
+<<<<<<< HEAD
+
+In particular, in TARA-PR2 graph (left) there is one spike at 1 that clearly falls outside the bonds, meaning that the total abundance in each station consistently influences the abundance in the following station.
+
+Moreover, in both dataset there is a peak at 14 that slightly exceeds the outside bonds and one at 15 that almost does.
+
+=======
 
 In particular, in TARA-PR2 graph (left) there is one spike at 1 that clearly falls outside the bonds, meaning that the total abundance in each station consistently influences the abundance in the following station.
 
