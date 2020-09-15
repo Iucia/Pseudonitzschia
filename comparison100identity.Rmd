@@ -287,10 +287,7 @@ Pn_candi_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudon
   rename(tax = V2, pid = V3) %>% 
   select(seqId, tax, pid)
 
-
 #subset tax (still with 508 seq) using the distr file (with the corret 324 seq) {the aim is to add the taxonomy info}
-
-Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr, by = "seqId")
 
 Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr, by = "seqId")
 
@@ -321,12 +318,13 @@ final_tara_mc <- Pn_candi_identity100.distr.tax.env %>%
                              grepl("kodamae", tax) ~ "ID5_kodamae|lundholmiae",
                              grepl("mannii", tax) ~ "mannii",
                              grepl("micropora", tax) ~ "micropora",
+                             grepl("P._multiseries_NparI", tax) ~ "multiseries_single",
                              grepl("multistriata", tax) ~ "multistriata",
                              grepl("pseudodelicatissima", tax) ~ "pseudodelicatissima",
                              grepl("pungens", tax) ~ "pungens",
                              grepl("sabit", tax) ~ "sabit",
                              grepl("turgidula", tax) ~ "turgidula",
-                            TRUE ~ tax)) %>% 
+                            TRUE ~ "ERRORE")) %>% 
   mutate(length = "tobedone") %>% 
   select(seqId, length, species, sample, readcounts, Station.label:Depth.chloro.max) %>%
   mutate(dataset = c("TARA-MC"))
@@ -396,7 +394,11 @@ full_join(tara_pr2_venn_species, tara_mc_venn_species) %>%
 
 <br>
 
-The two datasets are quite different in the number of amplicons. **TARA-PR2** has **17 sequences**, while **TARA-MC** has **324**. There are **8 shared sequences** between the two. In terms of species, they **share 4 species**, with TARA-PR2 containing 3 species never detected in TARA-MC, and the latter with 17 species never annotated in TARA-PR2. 
+The two datasets are quite different in the number of amplicons. **TARA-PR2** has **17 sequences**, while **TARA-MC** has **324**. There are **8 shared sequences** between the two. In terms of species, they **share 4 species**, with TARA-PR2 containing 3 species never detected in TARA-MC, and the latter with 17 species never annotated in TARA-PR2. [**]
+
+
+[**] Note:
+MC reference has 24 species (27 sequences); 22 out of 24 are detected here. The ones missing are *P. multiseries* in its "single" version (not the one in the ID3 cluster), and *P. pseudodelicatissima*.
 
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center"}
