@@ -127,7 +127,8 @@ srun awk '$2>2' 18S_V4_1191_samples_Pn.results > 18S_V4_1191_samples_Pn_3readsmi
 #wc -l: 30946 18S_V4_1191_samples_Pn.results
 
 
-#[*]as adviced by Nicholas Henry.
+#[*]as adviced by Nicholas Henry. Note: he also suggests to take reads appearing in at least 2 stations, but this will be done after
+  #(when integrating the distribution info)
   
   
 #Take only 100% pid sequences (pid is 3rd column)
@@ -161,9 +162,9 @@ Note: All sequences have length >380 bp [[it's sequence length and not query cov
 library(data.table)
 library(tidyverse)
 
-Pn_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.distr") #14 sequences
+Pn_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.distr") 
 
-Pn_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.results", header = F, sep = "\t") #17 sequences
+Pn_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.results", header = F, sep = "\t")
 
 ###ADD LENGTH INFO
 length.info <-fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin_seqid_length_seq_clean")
@@ -200,6 +201,13 @@ final_tara_pr2<- Pn_identity100.distr.tax.env1 %>%
   select(seqId, length, species, sample, readcounts, Station.label:Depth.chloro.max) %>%
   mutate(dataset = c("TARA-PR2"))
 
+
+final_tara_pr2 %>% 
+  group_by(seqId) %>% 
+  summarise(Occurrence = n_distinct(sample)) %>% 
+  arrange(Occurrence)
+
+#Ok, all the sequences retrieved occur in at least 2 samples No occurrence filtering needed.
 
 #final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info + LENGTH
 ```
@@ -268,7 +276,7 @@ srun grep -Ff Pn_tara_candi_final_pid100_3reads_list_clean.txt ~/Data/metaB/V4/1
 
 ```
 
-There are **324** different **sequences** assigned to Pseudonitzschia species with a **100% identity** to MareChiara database and occurring at least **3 times** in the dataset. 
+There are **324** different **sequences** assigned to *Pseudonitzschia* species with a **100% identity** to MareChiara database and occurring at least **3 times** in the dataset. 
 
 <br> 
 

@@ -570,7 +570,8 @@ srun awk &#39;$2&gt;2&#39; 18S_V4_1191_samples_Pn.results &gt; 18S_V4_1191_sampl
 #wc -l: 30946 18S_V4_1191_samples_Pn.results
 
 
-#[*]as adviced by Nicholas Henry.
+#[*]as adviced by Nicholas Henry. Note: he also suggests to take reads appearing in at least 2 stations, but this will be done after
+  #(when integrating the distribution info)
   
   
 #Take only 100% pid sequences (pid is 3rd column)
@@ -597,9 +598,9 @@ srun grep -Ff 18S_V4_1191_samples_Pn_pid100_3readsmin_seqid.txt ~/Data/metaB/V4/
 <pre class="r"><code>library(data.table)
 library(tidyverse)
 
-Pn_identity100.distr &lt;- fread(&quot;C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.distr&quot;) #14 sequences
+Pn_identity100.distr &lt;- fread(&quot;C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.distr&quot;) 
 
-Pn_identity100.tax &lt;- fread(&quot;C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.results&quot;, header = F, sep = &quot;\t&quot;) #17 sequences
+Pn_identity100.tax &lt;- fread(&quot;C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin.results&quot;, header = F, sep = &quot;\t&quot;)
 
 ###ADD LENGTH INFO
 length.info &lt;-fread(&quot;C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_Pn_pid100_3readsmin_seqid_length_seq_clean&quot;)
@@ -636,6 +637,32 @@ final_tara_pr2&lt;- Pn_identity100.distr.tax.env1 %&gt;%
   select(seqId, length, species, sample, readcounts, Station.label:Depth.chloro.max) %&gt;%
   mutate(dataset = c(&quot;TARA-PR2&quot;))
 
+
+final_tara_pr2 %&gt;% 
+  group_by(seqId) %&gt;% 
+  summarise(Occurrence = n_distinct(sample)) %&gt;% 
+  arrange(Occurrence)</code></pre>
+<pre><code>## # A tibble: 17 x 2
+##    seqId                                    Occurrence
+##    &lt;chr&gt;                                         &lt;int&gt;
+##  1 691ff1432cce7ae034c1e663d0952ba5d4853eb1          3
+##  2 079e37310a67bd15e84f50e8a5629f203789098c          4
+##  3 f715f5525604bd7c3e71ae8e72fffdf1c1eefa80          6
+##  4 43095a67d10eb1d9f78cd75c28d04acb03503d28          8
+##  5 d216a46f0bb74dc3b6e771ae823f1a3e8f305b30         10
+##  6 51626ba7b4c0e0f96a42673225e397e74d1175a3         16
+##  7 777af5e145a391a524631ce57508e0366ef4758a         16
+##  8 c719f8fcd22adaffad1d3c9806984e9368cc22f4         21
+##  9 5981b8e5cba45a72779033ce3ed7dec99b939d28         27
+## 10 7870cb9f78aaeefeb5c3d968ba7ca986410b08ed         34
+## 11 fec08c88abe78d3868903b5697db6d036500dc82         38
+## 12 aea1738fcde298b19d01ed45d7003b2b1d06ec24        171
+## 13 deb50f300a767d5a5776b1c0cb9545becd8efc51        224
+## 14 361eb69c4214c48ac1350ac299fa4f220e1322bb        337
+## 15 62bbb4c98b04d717dd39c7c8875eb738a9a261ba        427
+## 16 cf6e75b7498c7f654f83412f132fd3f3060ffe73        476
+## 17 937a4d3280b4226eac2d11295332b2e611552a18        581</code></pre>
+<pre class="r"><code>#Ok, all the sequences retrieved occur in at least 2 samples No occurrence filtering needed.
 
 #final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info + LENGTH</code></pre>
 <div class="column-left">
@@ -747,7 +774,7 @@ awk &#39;{print $1}&#39; 18S_V4_1191_samples_Pncandi_3readsmin_pid100.results &g
 
 srun grep -Ff Pn_tara_candi_final_pid100_3reads_list_clean.txt ~/Data/metaB/V4/18S_V4_1191_samples.distr &gt; 18S_V4_1191_samples_Pncandi_3readsmin_pid100.distr &amp;
 </code></pre>
-<p>There are <strong>324</strong> different <strong>sequences</strong> assigned to Pseudonitzschia species with a <strong>100% identity</strong> to MareChiara database and occurring at least <strong>3 times</strong> in the dataset.</p>
+<p>There are <strong>324</strong> different <strong>sequences</strong> assigned to <em>Pseudonitzschia</em> species with a <strong>100% identity</strong> to MareChiara database and occurring at least <strong>3 times</strong> in the dataset.</p>
 <p><br></p>
 <ol start="2" style="list-style-type: decimal">
 <li>Add the environmental information for the selected 324 sequences</li>
