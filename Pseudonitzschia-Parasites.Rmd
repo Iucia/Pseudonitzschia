@@ -1,0 +1,738 @@
+---
+title: "*Pseudonitzschia* and its parasitoids"
+subtitle: "Global scale co-occurrence analysis"
+author: "Lucia Campese"
+date: "September 2020"
+output:
+  html_document:
+    code_folding: hide
+---
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>
+.column-left{
+  float: left;
+  width: 50%;
+  text-align: left;
+}
+.column-right{
+  float: right;
+  width: 50%;
+  text-align: right;
+}
+</style>
+  
+<br>
+
+
+### Aim
+The aim is to explore the *in silico* association between *Pseudonitzschia* and its known eukaryotic parasitoids through a host-parasite network using Tara Oceans data.
+
+<br>
+
+### Dataset
+##### Data: TARA Oceans and TARA Oceans Polar circle metabarcording (V4)
+##### Taxa: *Pseudonitzschia*, Fungi, Oomycetes
+##### Geographic scale: Global
+
+
+<br>
+
+#### **Preparing datasets**
+
+<br>
+
+##### 1. *Pseudonitzschia*
+
+The used dataset is made of **324** different **sequences** assigned to *Pseudonitzschia* species with a **100% identity** to MareChiara database (curated by Valeria Ruggiero) and occurring in at least **3 sampling stations** in the TARA Oceans dataset (see [here](https://htmlpreview.github.io/?https://github.com/Iucia/Pseudonitzschia/blob/master/comparison100identity.html "Pn_MC-TARA") for details on dataset building).
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+
+library(data.table)
+library(tidyverse)
+
+Pn_candi_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/cfr100pid/18S_V4_1191_samples_Pncandi_3readsmin_pid100.distr") 
+
+colnames(Pn_candi_identity100.distr) <- c("seqId", "sample", "readcounts")
+
+paste0(n_distinct(Pn_candi_identity100.distr$seqId), " Pseudonitzschia sequence Ids")
+
+Pn_candi_identity100.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/cfr100pid/Pn_tara_candi_final_pid100.txt") %>%
+  separate(V1, into = c("seqId", "size"), sep = ";") %>% 
+  rename(tax = V2, pid = V3) %>% 
+  select(seqId, tax, pid)
+
+#subset tax (still with 508 seq) using the distr file (with the corret 324 seq) {the aim is to add the taxonomy info}
+
+Pn_candi_identity100.distr.tax <- inner_join(Pn_candi_identity100.tax, Pn_candi_identity100.distr, by = "seqId")
+
+##add env
+
+env <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_context.tsv")
+
+Pn_candi_identity100.distr.tax.env <- inner_join(Pn_candi_identity100.distr.tax, env) %>% 
+  select(seqId:readcounts,Pangaea_id:minimum.generation.time.h)
+
+
+final_tara_mc <- Pn_candi_identity100.distr.tax.env %>% 
+  mutate(species = case_when(grepl("allochrona", tax) ~ "allochrona",
+                             grepl("americana", tax) ~ "ID2_amer|cacia|circump|granii",
+                             grepl("arenysensis", tax) ~ "ID1_aren|dolo|arc|subcur",
+                             grepl("ID3_P._australis", tax) ~ "ID3_australis|multiseries",
+                             grepl("P._australis_SPC21", tax) ~ "australis_single",
+                             grepl("batesiana", tax) ~ "batesiana",
+                             grepl("brasiliana", tax) ~ "ID4_brasiliana|lineola",
+                             grepl("calliantha", tax) ~ "calliantha",
+                             grepl("cuspidata", tax) ~ "cuspidata",
+                             grepl("decipiens", tax) ~ "decipiens",
+                             grepl("delicatissima", tax) ~ "delicatissima",
+                             grepl("fraudulenta", tax) ~ "fraudulenta",
+                             grepl("fukuyoi", tax) ~ "fukuyoi",
+                             grepl("galaxiae", tax) ~ "galaxiae",
+                             grepl("heimii", tax) ~ "heimii",
+                             grepl("kodamae", tax) ~ "ID5_kodamae|lundholmiae",
+                             grepl("mannii", tax) ~ "mannii",
+                             grepl("micropora", tax) ~ "micropora",
+                             grepl("P._multiseries_NparI", tax) ~ "multiseries_single",
+                             grepl("multistriata", tax) ~ "multistriata",
+                             grepl("pseudodelicatissima", tax) ~ "pseudodelicatissima",
+                             grepl("pungens", tax) ~ "pungens",
+                             grepl("sabit", tax) ~ "sabit",
+                             grepl("turgidula", tax) ~ "turgidula",
+                            TRUE ~ "ERRORE")) %>% 
+  mutate(length = "tobedone") %>% 
+  select(seqId, length, species, sample, readcounts, Station.label:Depth.chloro.max) %>%
+  mutate(dataset = c("TARA-MC"))
+```
+
+<br>
+
+<br>
+
+
+<br>
+
+##### 2. Oomycetes
+
+The initial dataset is made of **2997** different **sequences** assigned to Peronosporomycetes with a variable percentage of identity to PR2 database and occurring in at least **3 sampling stations** in the TARA Ocean dataset. 
+
+```{bash, eval = FALSE}
+#1. Extract Peronosporomycetes  sequences from the the V4
+
+srun cat 18S_V4_1191_samples.results | grep Peronosporomycetes  > 18S_V4_1191_samples_oomyc.results &
+  
+  
+#take only sequences with at least 3 reads (seen three times in the whole dataset) [*]
+srun awk '$2>2' 18S_V4_1191_samples_oomyc.results > 18S_V4_1191_samples_oomyc_3readsmin.results &
+  
+#wc -l 5403 18S_V4_1191_samples_oomyc.results
+#wc -l 4451 18S_V4_1191_samples_oomyc_3readsmin.results
+  
+#[*]as adviced by Nicholas Henry.
+  
+
+#Extract only seq ids (column 1)
+awk '{print $1}' 18S_V4_1191_samples_oomyc_3readsmin.results > 18S_V4_1191_samples_oomyc_3readsmin_seqid.txt
+
+#wc -l: 4451 18S_V4_1191_samples_oomyc_3readsmin_seqid.txt
+
+
+#use the retrieved 4451 sequence Ids to subset the distr file (i.e. the one 
+#containing seqId|sampleId|readcounts
+
+srun grep -Ff 18S_V4_1191_samples_oomyc_3readsmin_seqid.txt ~/Data/metaB/V4/18S_V4_1191_samples.distr > 18S_V4_1191_samples_oomyc_3readsmin.distr &
+  
+
+```
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+library(data.table)
+library(tidyverse)
+
+oomyc.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Oomiceti/18S_V4_1191_samples_oomyc_3readsmin.distr")
+
+
+oomyc.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Oomiceti/18S_V4_1191_samples_oomyc_3readsmin.results", header = F, sep = "\t") #17 sequences
+
+
+colnames(oomyc.distr) <- c("seqId", "sample", "readcounts")
+colnames(oomyc.tax) <- c("seqId", "totreads", "perc.identity", "lineage", "idpr2")
+
+#oomyc.tax %>% 
+  #splitstackshape::cSplit("lineage", "|")
+
+oomyc.distr.tax <- inner_join(oomyc.distr, oomyc.tax, by = "seqId") %>% 
+  select(-totreads)
+
+env <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_context.tsv")
+
+oomyc.distr.tax.env <- inner_join(oomyc.distr.tax, env)
+
+
+##filter on occurrence
+
+oomyc.distr.tax.env.filtered <- oomyc.distr.tax.env %>% 
+  group_by(seqId) %>% 
+  mutate(Occurrence = n_distinct(Station.label)) %>% 
+  ungroup() %>% 
+  filter(Occurrence > 1)
+
+oomyc.distr.tax.env1 <- oomyc.distr.tax.env.filtered %>% 
+  select(seqId, lineage, perc.identity, sample, readcounts, Station.label:Depth.chloro.max)
+
+
+#oomyc.distr.tax.env1 is the final file with seqIds, taxonomical annotation, distribution and environmental info
+
+
+paste0(n_distinct(oomyc.distr.tax.env1$seqId), " Oomycetes sequences")
+
+
+oomyc_3reads2stationsmin_seqid <- oomyc.distr.tax.env1 %>% 
+  select(seqId) %>% 
+  unique()
+
+write.csv(oomyc_3reads2stationsmin_seqid, "oomyc_3reads2stationsmin_seqid.csv", row.names = F)
+
+
+###levo il nome della colonna su excel e esporto il file come txt file e lo porto su falkor 
+```
+
+```{r eval=FALSE}
+
+###FALKOR
+###take fastas
+
+#wc -l 2997 oomyc_3reads2stationsmin_seqid.txt
+
+#tuttapposto mi trovo 
+
+##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+
+cat oomyc_3reads2stationsmin_seqid.txt | tr -d '\r' > oomyc_3reads2stationsmin_seqid_ascii.txt
+
+#use seqIds  to retrieve fasta of the sequences
+
+
+srun grep -w -A 1 -Ff oomyc_3reads2stationsmin_seqid_ascii.txt ~/Data/metaB/V4/18S_V4_1191_samples.fas --no-group-separator > 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas &
+  
+#check if it retrieved the right number of sequences
+
+grep ">" 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas -c
+#2997
+
+wc -l oomyc_3reads2stationsmin_seqid_ascii.txt
+#2997
+
+#tutt'appost. 
+
+##quindi ora ho sia i fasta: 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas
+##che la tabella con le info sulla tassonomia parametri ambientali ecc: oomyc.distr.tax.env1
+```
+
+<div class="column-left">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+oomyc_percid <- oomyc.distr.tax.env1 %>% 
+  select(seqId, perc.identity) %>% 
+  unique() %>% 
+  select(perc.identity) %>% 
+  summary()
+
+
+oomyc.distr.tax.env1 %>% 
+ group_by(seqId) %>% 
+  mutate(totreads = sum(readcounts)) %>% 
+  ungroup() %>% 
+  select(seqId, perc.identity, totreads) %>% 
+  unique() %>% 
+  ggplot + 
+  aes(x = perc.identity, 
+      fill = totreads) + 
+  geom_histogram(bins = 100) + 
+  theme_bw() + 
+  annotation_custom(gridExtra::tableGrob(oomyc_percid), xmin=70, xmax=80, ymin=600, ymax=900) +
+  ggtitle("Percentage of identity to the PR2 reference", 
+          subtitle= paste0("Oomycetes, TARA V4; ", 
+                           n_distinct(oomyc.distr.tax.env1$seqId), 
+                           " distinct amplicons"))
+```
+</div><div class="column-right">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+oomyc.occurrences <- oomyc.distr.tax.env1 %>% 
+  group_by(seqId) %>% 
+  summarise(Occurrence = n_distinct(Station.label)) %>% 
+  arrange(Occurrence) 
+
+oomyc.table_occurrences <- oomyc.occurrences %>% 
+  select(Occurrence) %>% 
+  summary()
+
+oomyc.occurrences %>% 
+  ggplot() +
+  aes(x=Occurrence) +
+  geom_histogram(bins = 100) +
+  theme_bw() +
+  annotation_custom(gridExtra::tableGrob(oomyc.table_occurrences), xmin=25, xmax=55, ymin=400, ymax=750) +
+  ggtitle("Occurrence of sequences along stations", 
+          subtitle= paste0("Oomycetes, TARA V4; ", 
+                           n_distinct(oomyc.occurrences$seqId), 
+                           " distinct amplicons"))
+```
+</div>
+```{r eval=FALSE}
+library(maps)
+
+world_map <- map_data("world")
+p <- ggplot() + coord_fixed()
+
+base_world3 <- p + geom_polygon(data=world_map,aes(x=long, y=lat,group=group),colour="gray80",size=0.2, fill="gray80")+
+  theme_bw() + coord_fixed()
+
+
+#map
+oomyc.map <- oomyc.distr.tax.env1 %>% 
+  group_by(Station.label) %>% 
+  mutate(Lat= mean(Latitude),
+         Long=mean(Longitude),
+         abundance.per.station = sum(readcounts),
+         richness.per.station.amplicons = n_distinct(seqId)) %>%
+  ungroup() %>% 
+  select(seqId, Station.label, Lat, Long, abundance.per.station,
+         richness.per.station.amplicons) %>% unique()
+
+base_world3+
+  geom_point(data=oomyc.map,
+             aes(x = Long, y = Lat, 
+                 size = abundance.per.station,
+                 fill = richness.per.station.amplicons),
+             pch = 21, col = "black") +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  ggtitle("Oomycetes abundance and richness per station (V4)", "") 
+
+
+####map
+fungi.map <- Fungi.distr.tax.env1 %>% 
+  group_by(Station.label) %>% 
+  mutate(Lat= mean(Latitude),
+         Long=mean(Longitude),
+         abundance.per.station = sum(readcounts),
+         richness.per.station.amplicons = n_distinct(seqId)) %>%
+  ungroup() %>% 
+  select(seqId, Station.label, Lat, Long, abundance.per.station,
+         richness.per.station.amplicons) %>% unique()
+
+base_world3+
+  geom_point(data=fungi.map,
+             aes(x = Long, y = Lat, 
+                 size = abundance.per.station,
+                 fill = richness.per.station.amplicons),
+             pch = 21, col = "black") +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  ggtitle("Fungi abundance and richness per station (V4)", "") 
+
+
+
+
+
+
+tbm_pseudonitzschia <- final_tara_mc %>% 
+  select(seqId, sample:Depth.chloro.max) %>% 
+  mutate(taxogroup = "Pseudonitzschia")
+
+tbm_fungi <- Fungi.distr.tax.env1 %>% 
+  select(seqId, sample:Depth.chloro.max) %>% 
+  mutate(taxogroup = "Fungi")
+
+tbm_oomyc <- oomyc.distr.tax.env1 %>% 
+  select(seqId, sample:Depth.chloro.max) %>% 
+  mutate(taxogroup = "Oomycetes") 
+
+
+
+pn_oomyc_fungi.map <- rbind(tbm_pseudonitzschia, tbm_oomyc, tbm_fungi) %>% 
+  group_by(Station.label) %>% 
+  mutate(Lat= mean(Latitude),
+         Long=mean(Longitude)) %>% 
+  ungroup() %>% 
+  group_by(Station.label, taxogroup) %>% 
+  mutate(abundance.per.station = sum(readcounts),
+         richness.per.station.amplicons = n_distinct(seqId)) %>%
+  ungroup() %>% 
+  select(seqId, Station.label, Lat, Long, abundance.per.station,
+         richness.per.station.amplicons, taxogroup) %>% unique()
+
+base_world3+
+  geom_point(data=pn_oomyc_fungi.map,
+             aes(x = Long, y = Lat, 
+                 size = abundance.per.station,
+                 fill = taxogroup),
+             pch = 21, col = "black") +
+  #scale_fill_viridis_c() +
+  theme_minimal() +
+  theme(legend.text=element_text(size=10)) +
+  ggtitle("Abundance and richness per station (V4)", "") 
+```
+
+<br>
+
+<br>
+
+
+
+##### 3. Fungi
+
+The initial dataset is made of **34523** different **sequences** assigned to Fungi with a variable percentage of identity to PR2 database and occurring in at least **3 sampling stations** in the TARA Oceans dataset. 
+ 
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+
+library(data.table)
+library(tidyverse)
+
+Fungi.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Fungi/18S_V4_1191_samples_Fungi_3readsmin.distr")
+
+Fungi.tax <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Fungi/18S_V4_1191_samples_Fungi_3readsmin.results", header = F, sep = "\t") #17 sequences
+
+
+colnames(Fungi.distr) <- c("seqId", "sample", "readcounts")
+colnames(Fungi.tax) <- c("seqId", "totreads", "perc.identity", "lineage", "idpr2")
+
+
+#Fungi.tax %>% 
+#  splitstackshape::cSplit("lineage", "|") %>%
+#  filter(lineage_06 != "Fungi")
+
+##checked sono tutti funghi
+
+
+Fungi.distr.tax <- inner_join(Fungi.distr, Fungi.tax, by = "seqId") %>%
+  select(-totreads)
+
+
+env <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/18S_V4_1191_samples_context.tsv")
+
+Fungi.distr.tax.env <- inner_join(Fungi.distr.tax, env)
+
+
+##filter on occurrence
+
+Fungi.distr.tax.env.filtered <- Fungi.distr.tax.env %>% 
+  group_by(seqId) %>% 
+  mutate(Occurrence = n_distinct(Station.label)) %>% 
+  ungroup() %>% 
+  filter(Occurrence > 1)
+
+Fungi.distr.tax.env1 <- Fungi.distr.tax.env.filtered %>% 
+  select(seqId, lineage, perc.identity, sample, readcounts, Station.label:Depth.chloro.max)
+
+
+#Fungi.distr.tax.env1 is the final file with seqIds, taxonomical annotation, distribution and environmental info
+
+
+paste0(n_distinct(Fungi.distr.tax.env1$seqId), " Fungi sequences")
+
+
+Fungi_3reads2stationsmin_seqid <- Fungi.distr.tax.env1 %>% 
+  select(seqId) %>% 
+  unique()
+
+write.csv(Fungi_3reads2stationsmin_seqid, "Fungi_3reads2stationsmin_seqid.csv", row.names = F)
+
+
+###levo il nome della colonna su excel e esporto il file come txt file e lo porto su falkor 
+
+```
+
+```{r, eval=FALSE}
+
+###FALKOR
+###take fastas
+
+#wc -l 34523 Fungi_3reads2stationsmin_seqid.txt
+
+#tuttapposto mi trovo 
+
+##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+
+cat Fungi_3reads2stationsmin_seqid.txt | tr -d '\r' > Fungi_3reads2stationsmin_seqid_ascii.txt
+
+#use seqIds  to retrieve fasta of the sequences
+srun grep -w -A 1 -Ff Symbionts/Fungi_3reads2stationsmin_seqid_ascii.txt 18S_V4_1191_samples.fas --no-group-separator > 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas &
+  
+#check if it retrieved the right number of sequences
+
+grep ">" 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas -c
+#34523
+wc -l Fungi_3reads2stationsmin_seqid_ascii.txt
+#34523
+
+#tutt'appost. 
+
+
+##quindi ora ho sia i fasta: 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas
+##che la tabella con le info sulla tassonomia parametri ambientali ecc: Fungi.distr.tax.env1
+```
+
+
+<div class="column-left">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+
+Fungi_percid <- Fungi.distr.tax.env1 %>% 
+  select(seqId,perc.identity) %>%
+  unique() %>% 
+  select(perc.identity) %>% 
+  summary()
+
+
+
+Fungi.distr.tax.env1 %>% 
+  group_by(seqId) %>% 
+  mutate(totreads = sum(readcounts)) %>% 
+  ungroup() %>% 
+  select(seqId, perc.identity, totreads) %>% 
+  unique() %>% 
+  ggplot + 
+  aes(x = perc.identity, 
+      fill = totreads) + 
+  geom_histogram(bins = 100) + 
+  theme_bw() + 
+  # xlim(90,100) +
+  annotation_custom(gridExtra::tableGrob(Fungi_percid), xmin=80, xmax=90, ymin=6000, ymax=12000) +
+  ggtitle("Percentage of identity to the PR2 reference", 
+          subtitle= paste0("Fungi, TARA V4; ", 
+                           n_distinct(Fungi.distr.tax.env1$seqId), 
+                           " distinct amplicons"))
+
+```
+</div><div class="column-right">
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+
+Fungi.occurrences <- Fungi.distr.tax.env1 %>% 
+  group_by(seqId) %>% 
+  summarise(Occurrence = n_distinct(Station.label)) %>% 
+  arrange(Occurrence) 
+
+
+fungi.table_occurrences <- Fungi.occurrences %>% 
+  select(Occurrence) %>% 
+  summary()
+
+
+Fungi.occurrences %>% 
+  ggplot() +
+  aes(x=Occurrence) +
+  geom_histogram(bins = 100) +
+  theme_bw() +
+  annotation_custom(gridExtra::tableGrob(fungi.table_occurrences), xmin=25, xmax=55, ymin=7500, ymax=10000) +
+  ggtitle("Occurrence of sequences along stations", 
+          subtitle= paste0("Fungi, TARA V4; ", 
+                           n_distinct(Fungi.occurrences$seqId), 
+                           " distinct amplicons"))
+
+```
+</div>
+
+
+<br>
+
+<br> 
+
+<br> 
+
+
+The dataset is then split into two groups according on the percentage of identity (pid) to the PR2 database:
+
+a. group of sequences with pid $\geqslant$ 80
+
+b. group of sequences with pid < 80
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+Fungi.distr.tax.env1.pidgr <- Fungi.distr.tax.env1 %>% 
+  mutate(pid.group = case_when(perc.identity >= 80 ~ "high.pid",
+                               perc.identity < 80 ~ "low.pid"))
+
+
+Fungi.split <- split(Fungi.distr.tax.env1.pidgr, Fungi.distr.tax.env1.pidgr$pid.group)
+list2env(Fungi.split, .GlobalEnv)
+
+Fungi.distr.tax.env1.pidgr.annot <- Fungi.distr.tax.env1.pidgr %>%
+  group_by(pid.group) %>% 
+  summarise(amount = n_distinct(seqId)) %>% 
+  ungroup()
+  
+pie(Fungi.distr.tax.env1.pidgr.annot$amount,
+labels = c(paste0("Pid \u2265 80: ", n_distinct(high.pid$seqId), " amplicons"),
+           paste0("Pid < 80: ", n_distinct(low.pid$seqId), " amplicons")),
+  col=c("forestgreen", "deeppink3"),
+  main = "Fungi: Percentage of identity to PR2")
+
+
+
+n_distinct(high.pid$seqId) + n_distinct(low.pid$seqId) == n_distinct(Fungi.distr.tax.env1$seqId)
+
+```
+
+
+The sequences in fasta format are then extracterd for the high percentage group and blasted against a cleaned reference database of dinoflagellates.
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+fungi.high.pid.seqid <- high.pid %>% 
+  select(seqId) %>% 
+  unique()
+
+write.csv(fungi.high.pid.seqid, "fungi.high.pid.seqid.csv", row.names = F)
+
+###levo il nome della colonna su excel e esporto il file come txt file e lo porto su falkor 
+ 
+###rsync -avz --progress /drives/c/Users/Userszn/Documents/PhD/Git/bin/Pseudonitzschia/fungi.high.pid.seqid.txt lcampese@193.205.231.59:/home/lcampese/Data/metaB/V4/Parasites/Fungi/
+```
+
+```{r, eval=FALSE}
+
+###FALKOR
+###take fastas
+
+#wc -l fungi.high.pid.seqid.txt: 19406 
+
+#tuttapposto mi trovo 
+
+##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+
+cat fungi.high.pid.seqid.txt | tr -d '\r' > fungi.high.pid.seqid.ascii.txt
+
+#use seqIds  to retrieve fasta of the sequences
+srun grep -w -A 1 -Ff fungi.high.pid.seqid.ascii.txt /home/lcampese/Data/metaB/V4/18S_V4_1191_samples.fas --no-group-separator > 18S_V4_1191_samples.fungi.high.pid.fas &
+  
+#check if it retrieved the right number of sequences
+
+grep ">" 18S_V4_1191_samples.fungi.high.pid.fas -c
+#19406
+wc -l fungi.high.pid.seqid.ascii.txt
+#19406
+
+#tutt'appost. 
+
+
+##quindi ora ho sia i fasta: 18S_V4_1191_samples.fungi.high.pid.fas
+##che la tabella con le info sulla tassonomia parametri ambientali ecc: high.pid
+```
+
+
+```{r, eval=FALSE}
+#Falkor:
+
+#1)	Trasformo il dataset Dino in formato database 
+makeblastdb -in dino.fasta -dbtype nucl -parse_seqids -out dino_db
+
+#3)	Blast con max_target_seqs 1 (mi serve solo il best hit)
+blastn -db dino_db -perc_identity 97 -query 18S_V4_1191_samples.fungi.high.pid.fas -outfmt 6 -max_target_seqs 1 -num_threads 8 -out fungi.highpid.checkdino.txt &
+
+#output: wc -l: fungi.highpid.checkdino.txt 
+#1223
+```
+
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+fungi.highpid.checkdino <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Fungi/fungi.highpid.checkdino.txt", header = F)
+
+fungi.highpid.checkdino_seqIds <- fungi.highpid.checkdino %>% 
+  select(V1) %>% 
+  separate(V1, into = c("seqId", "size"), sep = ";") %>% 
+  select(seqId)
+
+
+high.pid.annot <- high.pid %>% 
+  mutate(tax = ifelse(seqId %in% fungi.highpid.checkdino_seqIds$seqId, "dino", "nondino")) %>% 
+  select(seqId, perc.identity, tax) %>% 
+  group_by(tax) %>% 
+  summarise(amount = n_distinct(seqId)) %>% 
+  ungroup()
+
+
+pie(high.pid.annot$amount,
+labels = c(paste0("Assigned to dinoflagellates:
+", n_distinct(fungi.highpid.checkdino_seqIds$seqId), " amplicons"),
+                                   paste0("Not assigned to dinoflagellates:
+", (n_distinct(high.pid$seqId) - n_distinct(fungi.highpid.checkdino_seqIds$seqId)), " amplicons")),
+    col=c("yellowgreen", "darkgreen"),
+    main = "Actual taxonomy of Fungi with pid to PR2 \u2265 80 ")
+```
+
+The blast results show that 1223 out of the initial 19406 sequences taxonomically assigned to Fungi are actually belonging to dinoflagellates.
+
+<br>
+
+The dataset is being cleaned by removing the misassignations and sequences in fasta format are then retrieved.
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+high.pid.cleaned <- high.pid %>% 
+  filter(! seqId %in% fungi.highpid.checkdino_seqIds$seqId)
+
+
+n_distinct(high.pid$seqId) - n_distinct(fungi.highpid.checkdino_seqIds$seqId) == n_distinct(high.pid.cleaned$seqId)
+
+
+high.pid.cleaned.seqid <- high.pid.cleaned %>% 
+  select(seqId) %>% 
+  unique()
+
+write.csv(high.pid.cleaned.seqid, "high.pid.cleaned.seqid.csv", row.names = F)
+
+###levo il nome della colonna su excel e esporto il file come txt file e lo porto su falkor 
+ 
+###rsync -avz --progress /drives/c/Users/Userszn/Documents/PhD/Git/bin/Pseudonitzschia/high.pid.cleaned.seqid.txt lcampese@193.205.231.59:/home/lcampese/Data/metaB/V4/Parasites/Fungi/
+```
+
+```{r, eval=FALSE}
+###FALKOR
+###take fastas
+
+#wc -l high.pid.cleaned.seqid.txt:  18183
+
+#tuttapposto mi trovo 
+
+##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+
+cat high.pid.cleaned.seqid.txt | tr -d '\r' > high.pid.cleaned.seqid.ascii.txt
+
+#use seqIds  to retrieve fasta of the sequences
+srun grep -w -A 1 -Ff high.pid.cleaned.seqid.ascii.txt /home/lcampese/Data/metaB/V4/18S_V4_1191_samples.fas --no-group-separator > 18S_V4_1191_samples.fungi.highpid.cleaned.fas &
+  
+#check if it retrieved the right number of sequences
+
+grep ">" 18S_V4_1191_samples.fungi.highpid.cleaned.fas -c
+#18183
+wc -l high.pid.cleaned.seqid.ascii.txt
+#18183
+
+#tutt'appost. 
+
+
+##quindi ora ho sia i fasta: 18S_V4_1191_samples.fungi.highpid.cleaned.fas
+##che la tabella con le info sulla tassonomia parametri ambientali ecc: high.pid.cleaned
+```
+
+The final dataset is made of **18183 sequences** .
+
+
+
+<br>
+
+To be done:
+
+<br>
+
+Let's look at the low.pid group and check manually if some sequence with a percentage of identity around 75% are actually Fungi
