@@ -632,14 +632,11 @@ write.csv(oomyc_3reads2stationsmin_seqid, &quot;oomyc_3reads2stationsmin_seqid.c
 
 #wc -l 2997 oomyc_3reads2stationsmin_seqid.txt
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat oomyc_3reads2stationsmin_seqid.txt | tr -d &#39;\r&#39; &gt; oomyc_3reads2stationsmin_seqid_ascii.txt
 
-#use seqIds  to retrieve fasta of the sequences
-
+#use seqIds to retrieve fasta of the sequences
 
 srun grep -w -A 1 -Ff oomyc_3reads2stationsmin_seqid_ascii.txt ~/Data/metaB/V4/18S_V4_1191_samples.fas --no-group-separator &gt; 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas &amp;
   
@@ -651,10 +648,10 @@ grep &quot;&gt;&quot; 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas -c
 wc -l oomyc_3reads2stationsmin_seqid_ascii.txt
 #2997
 
-#tutt&#39;appost. 
+#ok.
 
-##quindi ora ho sia i fasta: 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: oomyc.distr.tax.env1</code></pre>
+##I now have both the fasta: 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas
+##and the table with taxonomy, env.par etc: oomyc.distr.tax.env1</code></pre>
 <div class="column-left">
 <pre class="r"><code>oomyc_percid &lt;- oomyc.distr.tax.env1 %&gt;% 
   select(seqId, perc.identity) %&gt;% 
@@ -862,9 +859,7 @@ write.csv(Fungi_3reads2stationsmin_seqid, &quot;Fungi_3reads2stationsmin_seqid.c
 
 #wc -l 34523 Fungi_3reads2stationsmin_seqid.txt
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat Fungi_3reads2stationsmin_seqid.txt | tr -d &#39;\r&#39; &gt; Fungi_3reads2stationsmin_seqid_ascii.txt
 
@@ -878,11 +873,10 @@ grep &quot;&gt;&quot; 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas -c
 wc -l Fungi_3reads2stationsmin_seqid_ascii.txt
 #34523
 
-#tutt&#39;appost. 
+#ok.
 
-
-##quindi ora ho sia i fasta: 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: Fungi.distr.tax.env1</code></pre>
+##I now have both the fasta: 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas
+##and the table with taxonomy, env.par etc: Fungi.distr.tax.env1</code></pre>
 <div class="column-left">
 <pre class="r"><code>Fungi_percid &lt;- Fungi.distr.tax.env1 %&gt;% 
   select(seqId,perc.identity) %&gt;%
@@ -979,9 +973,7 @@ write.csv(fungi.high.pid.seqid, &quot;fungi.high.pid.seqid.csv&quot;, row.names 
 
 #wc -l fungi.high.pid.seqid.txt: 19406 
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat fungi.high.pid.seqid.txt | tr -d &#39;\r&#39; &gt; fungi.high.pid.seqid.ascii.txt
 
@@ -995,11 +987,10 @@ grep &quot;&gt;&quot; 18S_V4_1191_samples.fungi.high.pid.fas -c
 wc -l fungi.high.pid.seqid.ascii.txt
 #19406
 
-#tutt&#39;appost. 
+#ok
 
-
-##quindi ora ho sia i fasta: 18S_V4_1191_samples.fungi.high.pid.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: high.pid</code></pre>
+##I now have both the fasta: 18S_V4_1191_samples.fungi.high.pid.fas
+##and the table with taxonomy, env.par etc: high.pid</code></pre>
 <pre class="r"><code>#Falkor:
 
 #1) Trasformo il dataset Dino in formato database 
@@ -1057,9 +1048,7 @@ write.csv(high.pid.cleaned.seqid, &quot;high.pid.cleaned.seqid.csv&quot;, row.na
 
 #wc -l high.pid.cleaned.seqid.txt:  18183
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat high.pid.cleaned.seqid.txt | tr -d &#39;\r&#39; &gt; high.pid.cleaned.seqid.ascii.txt
 
@@ -1073,11 +1062,10 @@ grep &quot;&gt;&quot; 18S_V4_1191_samples.fungi.highpid.cleaned.fas -c
 wc -l high.pid.cleaned.seqid.ascii.txt
 #18183
 
-#tutt&#39;appost. 
+#ok
 
-
-##quindi ora ho sia i fasta: 18S_V4_1191_samples.fungi.highpid.cleaned.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: high.pid.cleaned</code></pre>
+#I now have both the fasta: 18S_V4_1191_samples.fungi.highpid.cleaned.fas
+##and the table with taxonomy, env.par etc: high.pid.cleaned</code></pre>
 <p>The final dataset is made of <strong>18183 sequences</strong> .</p>
 <p><br></p>
 <p>To be done:</p>

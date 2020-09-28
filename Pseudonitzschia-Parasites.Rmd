@@ -208,14 +208,11 @@ write.csv(oomyc_3reads2stationsmin_seqid, "oomyc_3reads2stationsmin_seqid.csv", 
 
 #wc -l 2997 oomyc_3reads2stationsmin_seqid.txt
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat oomyc_3reads2stationsmin_seqid.txt | tr -d '\r' > oomyc_3reads2stationsmin_seqid_ascii.txt
 
-#use seqIds  to retrieve fasta of the sequences
-
+#use seqIds to retrieve fasta of the sequences
 
 srun grep -w -A 1 -Ff oomyc_3reads2stationsmin_seqid_ascii.txt ~/Data/metaB/V4/18S_V4_1191_samples.fas --no-group-separator > 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas &
   
@@ -227,10 +224,10 @@ grep ">" 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas -c
 wc -l oomyc_3reads2stationsmin_seqid_ascii.txt
 #2997
 
-#tutt'appost. 
+#ok.
 
-##quindi ora ho sia i fasta: 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: oomyc.distr.tax.env1
+##I now have both the fasta: 18S_V4_1191_samples_oomyc_3reads2stationsmin.fas
+##and the table with taxonomy, env.par etc: oomyc.distr.tax.env1
 ```
 
 <div class="column-left">
@@ -457,9 +454,7 @@ write.csv(Fungi_3reads2stationsmin_seqid, "Fungi_3reads2stationsmin_seqid.csv", 
 
 #wc -l 34523 Fungi_3reads2stationsmin_seqid.txt
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat Fungi_3reads2stationsmin_seqid.txt | tr -d '\r' > Fungi_3reads2stationsmin_seqid_ascii.txt
 
@@ -473,11 +468,10 @@ grep ">" 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas -c
 wc -l Fungi_3reads2stationsmin_seqid_ascii.txt
 #34523
 
-#tutt'appost. 
+#ok.
 
-
-##quindi ora ho sia i fasta: 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: Fungi.distr.tax.env1
+##I now have both the fasta: 18S_V4_1191_samples_Fungi_3reads2stationsmin.fas
+##and the table with taxonomy, env.par etc: Fungi.distr.tax.env1
 ```
 
 
@@ -605,9 +599,7 @@ write.csv(fungi.high.pid.seqid, "fungi.high.pid.seqid.csv", row.names = F)
 
 #wc -l fungi.high.pid.seqid.txt: 19406 
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat fungi.high.pid.seqid.txt | tr -d '\r' > fungi.high.pid.seqid.ascii.txt
 
@@ -621,11 +613,10 @@ grep ">" 18S_V4_1191_samples.fungi.high.pid.fas -c
 wc -l fungi.high.pid.seqid.ascii.txt
 #19406
 
-#tutt'appost. 
+#ok
 
-
-##quindi ora ho sia i fasta: 18S_V4_1191_samples.fungi.high.pid.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: high.pid
+##I now have both the fasta: 18S_V4_1191_samples.fungi.high.pid.fas
+##and the table with taxonomy, env.par etc: high.pid
 ```
 
 
@@ -702,9 +693,7 @@ write.csv(high.pid.cleaned.seqid, "high.pid.cleaned.seqid.csv", row.names = F)
 
 #wc -l high.pid.cleaned.seqid.txt:  18183
 
-#tuttapposto mi trovo 
-
-##solo che il mio file ? un ascii with crlf terminators e il fasta no, quindi prima devo convertire il file in formato decente
+##convert file (ascii with crlf terminators) into a simple ascii file, in order to be grepped with the fasta file (simple ascii):
 
 cat high.pid.cleaned.seqid.txt | tr -d '\r' > high.pid.cleaned.seqid.ascii.txt
 
@@ -718,11 +707,10 @@ grep ">" 18S_V4_1191_samples.fungi.highpid.cleaned.fas -c
 wc -l high.pid.cleaned.seqid.ascii.txt
 #18183
 
-#tutt'appost. 
+#ok
 
-
-##quindi ora ho sia i fasta: 18S_V4_1191_samples.fungi.highpid.cleaned.fas
-##che la tabella con le info sulla tassonomia parametri ambientali ecc: high.pid.cleaned
+#I now have both the fasta: 18S_V4_1191_samples.fungi.highpid.cleaned.fas
+##and the table with taxonomy, env.par etc: high.pid.cleaned
 ```
 
 The final dataset is made of **18183 sequences** .
