@@ -594,7 +594,7 @@ srun grep -Ff 18S_V4_1191_samples_Pn_pid100_3readsmin_seqid.txt ~/Data/metaB/V4/
 <ol start="3" style="list-style-type: decimal">
 <li>Add the environmental information for the selected 17 sequences</li>
 </ol>
-<p>Note: All sequences have length &gt;380 bp [[it’s sequence length and not query cover?]]:</p>
+<p>Note: All sequences have length &gt;380 bp: this is sequence length and not query cover. However, the taxonomic assignment has been done using vsearch with the usearch_global option. It is global alignment so the query cover is always 100% (mail from Nicolas).</p>
 <pre class="r"><code>library(data.table)
 library(tidyverse)
 
@@ -752,7 +752,7 @@ Max. :385.0
 <ol style="list-style-type: decimal">
 <li>Extraction of sequences annotated at 100% with the reference:</li>
 </ol>
-<p>[length to be checked]</p>
+<p>[length and wuery cover to be checked]</p>
 <pre class="bash"><code>
 pwd: /home/lcampese/Data/metaB/V4/Blast_MC_TO/identity100
 

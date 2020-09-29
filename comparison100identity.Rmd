@@ -155,8 +155,7 @@ There are **17** different **sequences** assigned to *Pseudonitzschia* species w
 
 3. Add the environmental information for the selected 17 sequences
 
-Note: All sequences have length >380 bp [[it's sequence length and not query cover?]]:
-
+Note: All sequences have length >380 bp: this is sequence length and not query cover. However, the taxonomic assignment has been done using vsearch with the usearch_global option. It is global alignment so the query cover is always 100% (mail from Nicolas).
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE}
 library(data.table)
@@ -250,7 +249,7 @@ print("ue")
 
 1. Extraction of sequences annotated at 100% with the reference:
 
-[length to be checked]
+[length and wuery cover to be checked]
 
 ```{bash, eval = FALSE}
 
