@@ -719,6 +719,89 @@ The final dataset is made of **18183 sequences** .
 
 <br>
 
+<br> 
+
+Did they include BioMarks sequences in PR2 dataset? 
+
+
+1. Download supplementary material from the paper [Richards et al.,2015](http://dx.doi.org/10.1098/rspb.2015.2243  "paper BioMarKs").
+
+
+2. Check headers:
+
+```{r eval=FALSE}
+#Falkor: /home/lcampese/Data/metaB/V4/Parasites/Fungi/BioMarKs
+#1) combine the 71 fasta files containing sequences of the 71 OTU clusters of the paper into one single fasta files
+
+cat Cluster* > BioMaRks.fas
+
+#take headers of :
+# 18S_V4_1191_samples.fungi.highpid.cleaned.fas
+# BioMaRks.fas
+
+cat 18S_V4_1191_samples.fungi.highpid.cleaned.fas | grep "^>" | sort > 18S_V4_1191_samples.fungi.highpid.cleaned.fas.header.txt
+
+cat BioMaRks.fas | grep "^>" | sort > BioMaRks.fas.header.txt
+
+##rsync to local
+```
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+mine <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Fungi/biomarks/marine_fungi-v1.0/71_OTU_sequence_clusters/18S_V4_1191_samples.fungi.highpid.cleaned.fas.header.txt", 
+              header = F)
+
+biomarks <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Fungi/biomarks/marine_fungi-v1.0/71_OTU_sequence_clusters/BioMaRks.fas.header.txt",
+                  header = F)
+
+
+
+mine2 <- mine %>% 
+  select(V1) %>% 
+  separate(V1, into = c("bla", "seqId"), sep = ">") %>% 
+  select(seqId) %>% 
+  arrange()
+
+
+biomarks2 <- biomarks %>% 
+  separate(V1, into = c("bla", "ble"), sep = ">") %>% 
+  separate(ble, into = c("seqId", "bli"), sep = "_") %>% 
+  select(seqId) %>% 
+  arrange()
+
+
+inner_join(mine2, biomarks2)
+```
+
+There is no overlap between headers
+
+3. Blast?
+
+```{r, eval=FALSE}
+#Falkor: /home/lcampese/Data/metaB/V4/Parasites/Fungi/BioMarKs
+
+#1)	Trasformo il mio dataset PR2 (contenente sequenze di Fungi con perc.identity di almeno 80 e senza le sequenze di Dino) in formato database 
+makeblastdb -in ~/Data/metaB/V4/Parasites/Fungi/18S_V4_1191_samples.fungi.highpid.cleaned.fas -dbtype nucl -parse_seqids -out 18S_V4_1191_samples.fungi.highpid.cleaned_db
+
+#3)	Blast con max_target_seqs 1 (mi serve solo il best hit)
+blastn -db 18S_V4_1191_samples.fungi.highpid.cleaned_db -perc_identity 100 -query BioMaRks.fas -outfmt 6 -max_target_seqs 1 -num_threads 8 -out fungi.highpid.cleaned.checkBioMarKs.txt &
+
+#wc -l fungi.highpid.cleaned.checkBioMarKs.txt 45 
+  
+#che vor dì?
+```
+
+
+
+
+
+
+
+
+
+<br>
+
 To be done:
 
 <br>

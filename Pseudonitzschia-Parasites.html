@@ -1068,6 +1068,66 @@ wc -l high.pid.cleaned.seqid.ascii.txt
 ##and the table with taxonomy, env.par etc: high.pid.cleaned</code></pre>
 <p>The final dataset is made of <strong>18183 sequences</strong> .</p>
 <p><br></p>
+<p><br></p>
+<p>Did they include BioMarks sequences in PR2 dataset?</p>
+<ol style="list-style-type: decimal">
+<li><p>Download supplementary material from the paper <a href="http://dx.doi.org/10.1098/rspb.2015.2243" title="paper BioMarKs">Richards et al.,2015</a>.</p></li>
+<li><p>Check headers:</p></li>
+</ol>
+<pre class="r"><code>#Falkor: /home/lcampese/Data/metaB/V4/Parasites/Fungi/BioMarKs
+#1) combine the 71 fasta files containing sequences of the 71 OTU clusters of the paper into one single fasta files
+
+cat Cluster* &gt; BioMaRks.fas
+
+#take headers of :
+# 18S_V4_1191_samples.fungi.highpid.cleaned.fas
+# BioMaRks.fas
+
+cat 18S_V4_1191_samples.fungi.highpid.cleaned.fas | grep &quot;^&gt;&quot; | sort &gt; 18S_V4_1191_samples.fungi.highpid.cleaned.fas.header.txt
+
+cat BioMaRks.fas | grep &quot;^&gt;&quot; | sort &gt; BioMaRks.fas.header.txt
+
+##rsync to local</code></pre>
+<pre class="r"><code>mine &lt;- fread(&quot;C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Fungi/biomarks/marine_fungi-v1.0/71_OTU_sequence_clusters/18S_V4_1191_samples.fungi.highpid.cleaned.fas.header.txt&quot;, 
+              header = F)
+
+biomarks &lt;- fread(&quot;C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Parasites/Fungi/biomarks/marine_fungi-v1.0/71_OTU_sequence_clusters/BioMaRks.fas.header.txt&quot;,
+                  header = F)
+
+
+
+mine2 &lt;- mine %&gt;% 
+  select(V1) %&gt;% 
+  separate(V1, into = c(&quot;bla&quot;, &quot;seqId&quot;), sep = &quot;&gt;&quot;) %&gt;% 
+  select(seqId) %&gt;% 
+  arrange()
+
+
+biomarks2 &lt;- biomarks %&gt;% 
+  separate(V1, into = c(&quot;bla&quot;, &quot;ble&quot;), sep = &quot;&gt;&quot;) %&gt;% 
+  separate(ble, into = c(&quot;seqId&quot;, &quot;bli&quot;), sep = &quot;_&quot;) %&gt;% 
+  select(seqId) %&gt;% 
+  arrange()
+
+
+inner_join(mine2, biomarks2)</code></pre>
+<pre><code>## Empty data.table (0 rows and 1 cols): seqId</code></pre>
+<p>There is no overlap between headers</p>
+<ol start="3" style="list-style-type: decimal">
+<li>Blast?</li>
+</ol>
+<pre class="r"><code>#Falkor: /home/lcampese/Data/metaB/V4/Parasites/Fungi/BioMarKs
+
+#1) Trasformo il mio dataset PR2 (contenente sequenze di Fungi con perc.identity di almeno 80 e senza le sequenze di Dino) in formato database 
+makeblastdb -in ~/Data/metaB/V4/Parasites/Fungi/18S_V4_1191_samples.fungi.highpid.cleaned.fas -dbtype nucl -parse_seqids -out 18S_V4_1191_samples.fungi.highpid.cleaned_db
+
+#3) Blast con max_target_seqs 1 (mi serve solo il best hit)
+blastn -db 18S_V4_1191_samples.fungi.highpid.cleaned_db -perc_identity 100 -query BioMaRks.fas -outfmt 6 -max_target_seqs 1 -num_threads 8 -out fungi.highpid.cleaned.checkBioMarKs.txt &amp;
+
+#wc -l fungi.highpid.cleaned.checkBioMarKs.txt 45 
+  
+#che vor dì?</code></pre>
+<p><br></p>
 <p>To be done:</p>
 <p><br></p>
 <p>Let’s look at the low.pid group and check manually if some sequence with a percentage of identity around 75% are actually Fungi</p>
