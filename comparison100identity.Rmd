@@ -7,8 +7,7 @@ output:
   html_document:
     code_folding: hide
 ---
----
-  
+
   ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -46,9 +45,11 @@ b) A selection of 27 *Pseudonitzschia* species sequences (from Valeria R.) from 
 ```{bash, eval = FALSE}
 #1. Extract Pseudonitzschia sequences from the total V4 dataset
 
-pwd: ~/Data/metaB/V4/TARA_exploration/TARA_identity100
+pwd: ~/Data/metaB/V4/TARA_exploration
 
-srun grep -Ff Pn_sequenceId.txt ~/Data/metaB/V4/18S_V4_1191_samples.results > 18S_V4_1191_samples_Pn.results &
+#srun grep "Pseudo-nitzschia" /home/lcampese/Data/metaB/V4/18S_V4_1191_samples.results | awk '{print $1}' | sort > Pn_sequenceId.txt &
+
+srun grep "Pseudo-nitzschia" /home/lcampese/Data/metaB/V4/18S_V4_1191_samples.results > 18S_V4_1191_samples_Pn.results &
 
 ###30946 sequences
 ```
@@ -74,6 +75,8 @@ library(gridExtra)
 
 
 load("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/Pn_tax.RData")
+
+#Pn_tax.RData contains seqId | sampleId | counts, per each of the 20956 seqIds assigned as Pseudonitzschia
 
 Percid <- 
   Pn_tax %>% 
@@ -208,7 +211,7 @@ final_tara_pr2 %>%
 
 #Ok, all the sequences retrieved occur in at least 2 samples No occurrence filtering needed.
 
-#final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info + LENGTH
+#final_taraPR2 is the final file with seqIds, taxonomical annotation, distribution and environmental info + LENGTH (lenght here not really useful - see above -)
 ```
 
 <div class="column-left">
@@ -282,6 +285,8 @@ There are **324** different **sequences** assigned to *Pseudonitzschia* species 
 2. Add the environmental information for the selected 324 sequences
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE}
+library(data.table)
+library(tidyverse)
 
 Pn_candi_identity100.distr <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/cfr100pid/18S_V4_1191_samples_Pncandi_3readsmin_pid100.distr") 
 
@@ -317,7 +322,7 @@ final_tara_mc <- Pn_candi_identity100.distr.tax.env %>%
                              grepl("calliantha", tax) ~ "calliantha",
                              grepl("cuspidata", tax) ~ "cuspidata",
                              grepl("decipiens", tax) ~ "decipiens",
-                             grepl("delicatissima", tax) ~ "delicatissima",
+                             tax == "P._delicatissima_B653" ~ "delicatissima",
                              grepl("fraudulenta", tax) ~ "fraudulenta",
                              grepl("fukuyoi", tax) ~ "fukuyoi",
                              grepl("galaxiae", tax) ~ "galaxiae",
@@ -325,9 +330,9 @@ final_tara_mc <- Pn_candi_identity100.distr.tax.env %>%
                              grepl("kodamae", tax) ~ "ID5_kodamae|lundholmiae",
                              grepl("mannii", tax) ~ "mannii",
                              grepl("micropora", tax) ~ "micropora",
-                             grepl("P._multiseries_NparI", tax) ~ "multiseries_single",
+                             tax == "P._multiseries_NparI_AM235380" ~ "multiseries_single",
                              grepl("multistriata", tax) ~ "multistriata",
-                             grepl("pseudodelicatissima", tax) ~ "pseudodelicatissima",
+                             tax == "P._pseudodelicatissima_B656" ~ "pseudodelicatissima",
                              grepl("pungens", tax) ~ "pungens",
                              grepl("sabit", tax) ~ "sabit",
                              grepl("turgidula", tax) ~ "turgidula",
@@ -401,11 +406,11 @@ full_join(tara_pr2_venn_species, tara_mc_venn_species) %>%
 
 <br>
 
-The two datasets are quite different in the number of amplicons. **TARA-PR2** has **17 sequences**, while **TARA-MC** has **324**. There are **8 shared sequences** between the two. In terms of species, they **share 4 species**, with TARA-PR2 containing 3 species never detected in TARA-MC, and the latter with 17 species never annotated in TARA-PR2. [**]
+The two datasets are quite different in the number of amplicons. **TARA-PR2** has **17 sequences**, while **TARA-MC** has **324**. There are **8 shared sequences** between the two. In terms of species, they **share 4 species**, with TARA-PR2 containing 3 species never detected in TARA-MC, and the latter with 19 species never annotated in TARA-PR2. [**]
 
 
 [**] Note:
-MC reference has 24 species (27 sequences); 22 out of 24 are detected here. The ones missing are *P. multiseries* in its "single" version (not the one in the ID3 cluster), and *P. pseudodelicatissima*.
+MC reference has 24 species (27 sequences); 23 out of 24 are detected here. The one missing is *P. multiseries* in its "single" version (not the one in the ID3 cluster).
 
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align="center"}
@@ -865,12 +870,19 @@ There are 15 sequences occurring only in one station.
 
 ```{bash, eval = FALSE}
 #1. Extract Pseudonitzschia sequences from the the whole PR2 database
+#OLD PR2 VERSION : I leave it here, but commented, just as reminder
 
 /home/lcampese/Data/metaB/V4
 
-srun zcat pr2_version_4.11.1_UniEuk_V4_unique.tsv.gz | grep Pseudo-nitzschia > pr2_version_4.11.1_UniEuk_V4_unique_Pn.tsv &
+#srun zcat pr2_version_4.11.1_UniEuk_V4_unique.tsv.gz | grep Pseudo-nitzschia > pr2_version_4.11.1_UniEuk_V4_unique_Pn.tsv &
+
+
+#extract pn from the fas file, replace the symbol ">" (header) with boh, una virgola? anyway remove it so that R can open it
+srun grep "Pseudo-nitzschia" 46345_EukRibo_V4_2020-10-27.fas | grep "^>" | sed -e 's/>//' -e 's/;/,/g' > 46345_EukRibo_V4_2020-10-27_Pn.txt & 
 
 ```
+
+Extracting Pseudo-nitzschia sequences from the latest version of PR2 dataset: 17 sequences.
 
 
 ```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
@@ -878,27 +890,45 @@ srun zcat pr2_version_4.11.1_UniEuk_V4_unique.tsv.gz | grep Pseudo-nitzschia > p
 library(data.table)
 library(tidyverse)
 
-pr2_pn <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/pr2_version_4.11.1_UniEuk_V4_unique_Pn.tsv", header  = FALSE)
+#pr2_pn <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/pr2_version_4.11.1_UniEuk_V4_unique_Pn.tsv", header  = FALSE)
 
-colnames(pr2_pn) <- c("lineage", "sequence", "taxogroup1", "taxogroup2", "PR2_id", "GenBank_ID")
+pr2_pn <- fread("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/metaB/V4/NEW_PR2_taxonomyfixed/46345_EukRibo_V4_2020-10-27_Pn.txt",
+                     header = F) 
 
-pr2_pn_final <- splitstackshape::cSplit(pr2_pn, "lineage", "|") %>% 
-  mutate(species = ifelse(is.na(lineage_13), "Pseudo-nitzschia+unknown",
-                          as.character(lineage_13))) %>% 
-  select(-lineage_13) %>% 
-  splitstackshape::cSplit("species", "+") %>%
-  rename(species = species_2) %>% 
-  mutate(seq_length = nchar(sequence)) %>% 
-  select(sequence, seq_length, species, PR2_id, GenBank_ID)
+#colnames(pr2_pn) <- c("lineage", "sequence", "taxogroup1", "taxogroup2", "PR2_id", "GenBank_ID")
 
-paste0(n_distinct(pr2_pn_final$sequence), " identical sequences")
+#pr2_pn_final <- splitstackshape::cSplit(pr2_pn, "lineage", "|") %>% 
+#  mutate(species = ifelse(is.na(lineage_13), "Pseudo-nitzschia+unknown",
+#                          as.character(lineage_13))) %>% 
+#  select(-lineage_13) %>% 
+#  splitstackshape::cSplit("species", "+") %>%
+#  rename(species = species_2) %>% 
+#  mutate(seq_length = nchar(sequence)) %>% 
+#  select(sequence, seq_length, species, PR2_id, GenBank_ID)
+
+
+pr2_pn_final <- pr2_pn%>% 
+  separate(V1, into = c("GenBank_Id", "Domain"), sep = " ") %>%
+  rename(species = V13) %>% 
+  select(GenBank_Id, species)
+
+
+
+#paste0(n_distinct(pr2_pn_final$sequence), " identical sequences")
 paste0(n_distinct(pr2_pn_final$species), " species detected")
-paste0(n_distinct(pr2_pn_final$PR2_id), " PR2 IDs")
+#paste0(n_distinct(pr2_pn_final$PR2_id), " PR2 IDs")
+paste0(n_distinct(pr2_pn_final$GenBank_Id), " GenBank Ids")
+
+```
+
+```{r eval=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+###DA QUA IN POI NON HO AGGIORNATO
+
+#pr2_pn_final1<- splitstackshape::cSplit(pr2_pn_final, "GenBank_ID", ",")
 
 
-pr2_pn_final1<- splitstackshape::cSplit(pr2_pn_final, "GenBank_ID", ",")
-
-genbank_abb <- as.data.frame(lapply(pr2_pn_final1[,5:9], function(y) gsub("\\..*", "", y)))
+#genbank_abb <- as.data.frame(lapply(pr2_pn_final1[,5:9], function(y) gsub("\\..*", "", y)))
 
 pr2_pn_final2 <- pr2_pn_final1 %>% 
   select(sequence:PR2_id) %>% 
