@@ -1,0 +1,442 @@
+---
+title: "MareChiara microscopy exploration "
+subtitle: " "
+author: "Lucia Campese"
+date: "April 2021"
+output:
+  html_document:
+    code_folding: hide
+---
+
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>
+.column-left{
+  float: left;
+  width: 50%;
+  text-align: left;
+}
+.column-right{
+  float: right;
+  width: 50%;
+  text-align: right;
+}
+</style>
+  
+<br>
+
+### Aim
+Explore microscopy counts of phytoplankton taxa from the LTER MareChiara
+
+### Dataset
+##### Data: LTER MareChiara microscopy data
+
+
+### Workflow
+
+<br>
+
+
+1. Upload datasets
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#packages
+library(tidyverse)
+library(tidyquant)
+library(timetk)
+
+#upload files
+MC_species_counts <- readxl::read_xlsx("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Pn_and_selected_species_1984_2019.xlsx",
+                                       skip = 1, col_names = T)
+
+sampling_dates <- readxl::read_xlsx("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/SamplingDates_1984_2019.xlsx",
+                                    col_names = FALSE, col_types = "date")
+
+sampling_dates_2 <- sampling_dates %>% 
+  rename(Date = ...1)
+
+sample_IDs <- MC_species_counts %>%
+  rename(tax = Sample_ID) %>%
+  pivot_longer(2:1323) %>%
+  splitstackshape::cSplit("name", sep = " ") %>% 
+  mutate(name_3 = ifelse(is.na(name_3), name_2, name_3),
+         name_4 = sprintf("%04d", as.numeric(name_2)),
+         name_5 = ifelse(name_2 == name_3, name_4, paste0(name_4, "_", name_3)),
+         Sample_ID = paste0(name_1, "_", name_5)) %>% 
+  select(Sample_ID) %>% 
+  unique()
+
+sample_IDS_dates <- cbind(sample_IDs, sampling_dates_2)
+
+MC_species_counts_long <- MC_species_counts %>%
+  rename(tax = Sample_ID) %>%
+  pivot_longer(2:1323) %>%
+  splitstackshape::cSplit("name", sep = " ") %>% 
+  mutate(name_3 = ifelse(is.na(name_3), name_2, name_3),
+         name_4 = sprintf("%04d", as.numeric(name_2)),
+         name_5 = ifelse(name_2 == name_3, name_4, paste0(name_4, "_", name_3)),
+         Sample_ID = paste0(name_1, "_", name_5)) %>% 
+  select(tax, Sample_ID, value) %>% 
+  splitstackshape::cSplit("tax", sep = " ") %>% 
+  rename(genus = tax_1) %>% 
+  mutate(species = case_when(tax_2 == "cf." ~ "cf.pungens",
+                             tax_2 == "danicus" ~ "danicus_complex",
+                             tax_2 == "delicatissima" ~ "delicatissima_complex",
+                             (tax_2 == "galaxiae" & grepl("small", tax_3)) ~ "galaxiae_small",
+                             tax_2 == "pseudodlicatissima" ~ "pseudodelicatissima_complex",
+                             TRUE ~ as.character(tax_2))) %>% 
+  select(-c(tax_2:tax_4)) %>% 
+  filter(value > 0)
+
+
+MC_species_counts_long_2 <- MC_species_counts_long %>% 
+  left_join(sample_IDS_dates, by = "Sample_ID")
+
+
+#remove Leoptocylindrus aporus e Pseudonitzschia cf pungens
+#make tax column
+#save output 
+#MC_species_counts_long_3 <- MC_species_counts_long_2 %>%
+  #unite("tax", genus:species, sep = "_") %>%
+  #filter(!tax %in% c("Leptocylindrus_aporus", "Pseudo-nitzschia_cf.pungens"))
+
+```
+
+2. Retrieve taxonomy information per each species
+
+```{r, eval=FALSE}
+
+#tidy taxonomy
+MC_species_taxonomy_worms <-  MC_species_counts_long_2 %>% 
+  mutate(genus = as.character(genus)) %>% 
+  select(genus) %>% 
+  pull() %>% 
+  unique() %>% 
+  enframe(name = NULL) %>% 
+  mutate(taxo = map(value, taxize::classification, db = "worms")) %>% 
+  mutate(taxa = map(taxo, function(x) x[[1]])) %>% 
+  unnest(taxa) %>% 
+  select(value, name, rank)
+
+save(MC_species_taxonomy_worms, file = "C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/MC_species_taxonomy_worms.RData")
+```
+
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+load("C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/MC_species_taxonomy_worms.RData")
+
+MC_species_taxonomy_worms_wide <-  MC_species_taxonomy_worms %>% 
+  pivot_wider(names_from = rank, values_from = name) %>% 
+  mutate_at(vars(4:15), ~ifelse(is.na(.), "unknown", .)) %>% 
+  mutate(Phylum = ifelse(Phylum == "unknown", "Chlorophyta", Phylum)) %>% 
+  select(Kingdom, Phylum, Class, Order, Family, Genus)
+
+MC_species_counts_long_2_tax <- MC_species_counts_long_2 %>% 
+  rename(Genus = genus) %>% 
+  inner_join(MC_species_taxonomy_worms_wide, by = "Genus") %>% 
+  select(Kingdom:Family, Genus, species, Sample_ID, Date, value)
+
+
+
+print(paste0("The dataset comprises ",
+      n_distinct(MC_species_counts_long_2_tax$species), " species belonging to ",
+      n_distinct(MC_species_counts_long_2_tax$Genus), " genera ascribed to ",
+      n_distinct(MC_species_counts_long_2_tax$Phylum), " phyla: ",
+      unique(MC_species_counts_long_2_tax$Phylum)[1], ", ",
+      unique(MC_species_counts_long_2_tax$Phylum)[2], ", ",
+      unique(MC_species_counts_long_2_tax$Phylum)[3], ", ",
+      unique(MC_species_counts_long_2_tax$Phylum)[4], ", ",
+      unique(MC_species_counts_long_2_tax$Phylum)[5]))
+
+
+```
+
+
+3. Check the occurrence of each taxon in each sample
+
+### Genus level {.tabset}
+
+#### Class: Bacillariophyceae 
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+#Occurrence
+#per genus (col by Family)
+#Bacillariophyceae
+MC_species_counts_long_2_tax %>%
+  mutate(genusab = substr(Genus, 1, 1)) %>% 
+  filter(Class == "Bacillariophyceae") %>% 
+  unite("tax", c(genusab,species), sep = ".") %>% 
+  group_by(Phylum, Class, Order, Family, Genus) %>% 
+  summarise(n_samples = n_distinct(Sample_ID)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  aes(x=Genus, y=n_samples, fill = Family) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, size=8, vjust = 0.5)) +
+  xlab("Genus") +
+  ylab("Occurrence") + 
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(~ paste0("Phylum: ", Phylum, "; Class: " , Class))
+
+```
+
+#### Class: Prymnesiophyceae
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#Prymnesiophyceae
+MC_species_counts_long_2_tax %>%
+  mutate(genusab = substr(Genus, 1, 1)) %>% 
+  filter(Class == "Prymnesiophyceae") %>% 
+  unite("tax", c(genusab,species), sep = ".") %>% 
+  group_by(Phylum, Class, Order, Family, Genus) %>% 
+  summarise(n_samples = n_distinct(Sample_ID)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  aes(x=Genus, y=n_samples, fill = Family) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, size=8, vjust = 0.5)) +
+  xlab("Genus") +
+  ylab("Occurrence") + 
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(~ paste0("Phylum: ", Phylum, "; Class: " , Class))
+
+```
+
+#### Other Classes
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center', fig.width=8}
+#Other 
+MC_species_counts_long_2_tax %>%
+  mutate(genusab = substr(Genus, 1, 1)) %>% 
+  filter(!Class %in% c("Bacillariophyceae", "Prymnesiophyceae")) %>% 
+  unite("tax", c(genusab,species), sep = ".") %>% 
+  group_by(Phylum, Class, Order, Family, Genus) %>% 
+  summarise(n_samples = n_distinct(Sample_ID)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  aes(x=Genus, y=n_samples, fill = Family) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, size=8, vjust = 0.5)) +
+  xlab("Genus") +
+  ylab("Occurrence") + 
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(~ paste0("Phylum: ", Phylum, "; Class: " , Class), ncol = 2)
+```
+
+
+### Species level {.tabset}
+
+#### Class: Bacillariophyceae 
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center', fig.width=8}
+#per species (col by Genus)
+#Bacillariophyceae
+MC_species_counts_long_2_tax %>%
+  mutate(genusab = substr(Genus, 1, 1)) %>% 
+  filter(Class == "Bacillariophyceae") %>% 
+  unite("tax", c(genusab,species), sep = ".") %>% 
+  group_by(Phylum, Class, Order, Family, Genus, tax) %>% 
+  summarise(n_samples = n_distinct(Sample_ID)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  aes(x=tax, y=n_samples, fill = Genus) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, size=8, vjust = 0.5)) +
+  xlab("Species") +
+  ylab("Occurrence") + 
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(~ paste0("Phylum: ", Phylum, "; Class: " , Class))
+```
+
+#### Class: Prymnesiophyceae
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#Prymnesiophyceae
+MC_species_counts_long_2_tax %>%
+  mutate(genusab = substr(Genus, 1, 1)) %>% 
+  filter(Class == "Prymnesiophyceae") %>% 
+  unite("tax", c(genusab,species), sep = ".") %>% 
+  group_by(Phylum, Class, Order, Family, Genus, tax) %>% 
+  summarise(n_samples = n_distinct(Sample_ID)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  aes(x=tax, y=n_samples, fill = Genus) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, size=8, vjust = 0.5)) +
+  xlab("Species") +
+  ylab("Occurrence") + 
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(~ paste0("Phylum: ", Phylum, "; Class: " , Class))
+```
+
+#### Other Classes
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#Others
+MC_species_counts_long_2_tax %>%
+  mutate(genusab = substr(Genus, 1, 1)) %>% 
+  filter(!Class %in% c("Bacillariophyceae", "Prymnesiophyceae")) %>% 
+  unite("tax", c(genusab,species), sep = ".") %>% 
+  group_by(Phylum, Class, Order, Family, Genus, tax) %>% 
+  summarise(n_samples = n_distinct(Sample_ID)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  aes(x=tax, y=n_samples, fill = Genus) +
+  geom_col() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, size=8, vjust = 0.5)) +
+  xlab("Species") +
+  ylab("Occurrence") + 
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(~ paste0("Phylum: ", Phylum, "; Class: " , Class), ncol = 2)
+```
+
+###
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+
+#remove Leoptocylindrus aporus e Pseudonitzschia cf pungens
+#make tax column
+#save output 
+MC_species_counts_long_3_tax <- MC_species_counts_long_2_tax %>%
+  unite("tax", Genus:species, sep = "_") %>%
+  filter(!tax %in% c("Leptocylindrus_aporus", "Pseudo-nitzschia_cf.pungens"))
+```
+
+
+4. Explore the distribution of each species[*] through time
+
+[*]Note: I removed L.aporus and P.cf.pungens (too low occurrence)
+
+
+### Time-series analysis{.tabset}
+#### Class: Bacillariophyceae 
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#1. Investigate a time series
+#make normal time series plot
+#each taxon
+Bacillariophyceae_timeseriesplot <- MC_species_counts_long_3_tax %>%
+  filter(Class == "Bacillariophyceae") %>% 
+  group_by(tax) %>% 
+  nest() %>% 
+  mutate(plot = map2(tax, data, ~ plot_time_series(.data = .y,
+                                                   Date, 
+                                                   value, 
+                                                   .interactive = FALSE,
+                                                   .smooth = FALSE) +
+                       xlab("Date") +
+                       ylab("cells/ml") +
+                       ggtitle(.x)))
+
+
+ggsave(file="C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Bacillariophyceae_timeseriesplot.pdf",
+       width = 12,
+       height = 12,
+       gridExtra::marrangeGrob(grobs = Bacillariophyceae_timeseriesplot$plot,
+                               nrow=2, ncol=2,
+                               top = "Bacillariophyceae: Time series plot"))
+
+```
+
+![timeseriesplot](C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Bacillariophyceae_timeseriesplot.pdf){width=100% height=700}
+
+#### Class: Prymnesiophyceae 
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#1. Investigate a time series
+#make normal time series plot
+#each taxon
+Prymnesiophyceae_timeseriesplot <- MC_species_counts_long_3_tax %>%
+  filter(Class == "Prymnesiophyceae") %>% 
+  group_by(tax) %>% 
+  nest() %>% 
+  mutate(plot = map2(tax, data, ~ plot_time_series(.data = .y,
+                                                   Date, 
+                                                   value, 
+                                                   .interactive = FALSE,
+                                                   .smooth = FALSE) +
+                       xlab("Date") +
+                       ylab("cells/ml") +
+                       ggtitle(.x)))
+
+
+ggsave(file="C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Prymnesiophyceae_timeseriesplot.pdf",
+       width = 12,
+       height = 12,
+       gridExtra::marrangeGrob(grobs = Prymnesiophyceae_timeseriesplot$plot,
+                               nrow=2, ncol=2,
+                               top = "Prymnesiophyceae: Time series plot"))
+
+```
+
+![timeseriesplot](C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Prymnesiophyceae_timeseriesplot.pdf){width=100% height=700}
+
+
+
+
+### Seasonality plots{.tabset}
+
+#### Class: Bacillariophyceae 
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#3. Make a seasonality plot
+#seasonal diagnostics
+#each taxon
+Bacillariophyceae_seasonal_diagnositcs <- MC_species_counts_long_3_tax %>%
+  filter(Class == "Bacillariophyceae") %>% 
+  group_by(tax) %>% 
+  nest() %>%  
+  mutate(plot = map2(tax, data, ~ plot_seasonal_diagnostics(.data = .y,
+                                                            Date, value, .interactive = FALSE,
+                                                            .feature_set = c("week", "month.lbl", "quarter", "year"),
+                                                            .geom = "boxplot",
+                                                            .y_lab = "cells/ml") +
+                       theme(axis.text.x = element_text(angle=50, size=9, vjust = 0.5)) +
+                       ggtitle(.x))) 
+
+
+ggsave(file="C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Bacillariophyceae_seasonal_diagnositcs.pdf",
+       width = 9,
+       height = 12,
+       gridExtra::marrangeGrob(grobs = Bacillariophyceae_seasonal_diagnositcs$plot,
+                               nrow=1, ncol=1,
+                               top = "Bacillariophyceae: Seasonal diagnostics"))
+
+```
+![Bacillariophyceae_seasonal_diagnositcs](C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Bacillariophyceae_seasonal_diagnositcs.pdf){width=100% height=700}
+
+
+#### Class: Prymnesiophyceae 
+
+```{r warning=FALSE, message=FALSE, cache=TRUE, fig.align='center'}
+#3. Make a seasonality plot
+#seasonal diagnostics
+#each taxon
+Prymnesiophyceae_seasonal_diagnositcs <- MC_species_counts_long_3_tax %>%
+  filter(Class == "Prymnesiophyceae") %>% 
+  group_by(tax) %>% 
+  nest() %>%  
+  mutate(plot = map2(tax, data, ~ plot_seasonal_diagnostics(.data = .y,
+                                                            Date, value, .interactive = FALSE,
+                                                            .feature_set = c("week", "month.lbl", "quarter", "year"),
+                                                            .geom = "boxplot",
+                                                            .y_lab = "cells/ml") +
+                       theme(axis.text.x = element_text(angle=50, size=9, vjust = 0.5)) +
+                       ggtitle(.x))) 
+
+
+ggsave(file="C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Prymnesiophyceae_seasonal_diagnositcs.pdf",
+       width = 9,
+       height = 12,
+       gridExtra::marrangeGrob(grobs = Prymnesiophyceae_seasonal_diagnositcs$plot,
+                               nrow=1, ncol=1,
+                               top = "Prymnesiophyceae: Seasonal diagnostics"))
+
+```
+![Bacillariophyceae_seasonal_diagnositcs](C:/Users/Userszn/Documents/PhD/script/Pseudonitzschia/MC_microscopy/Prymnesiophyceae_seasonal_diagnositcs.pdf){width=100% height=700}
+
